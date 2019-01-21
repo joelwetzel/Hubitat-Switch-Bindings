@@ -1,2 +1,24 @@
 # Hubitat-Switch-Bindings
 An app for Hubitat that binds switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off. (It works a lot like a z-wave association, but it happens in the Hubitat hub, so that the hub can know/display the updated device states.)
+
+## Examples of Usage
+- Suppose you have a smart wall switch in your living room that controls the overhead can lights.  Now you add a lamp in the room, and you either put a smart bulb in it, or plug it into a smart outlet.  You can use this app to bind the wall switch and the lamp together, so that all your lights will always turn on and off together.  They will stay synced whether you control them using the wall switch, an app, or Alexa or Google Home.
+- Sync a fan and a light switch
+- Soon I will be releasing a device driver for a 5 button scene controller.  My driver exposes the buttons/lights as virtual switches.  By using Switch Bindings alongside this, it becomes easy to keep lights synced with the scene controller.
+
+## Installation
+1. On the Hubitat hub, go to the "Apps Code" page
+2. Click "+ New App"
+3. Copy in the contents of SwitchBindings.groovy
+4. Click "Save"
+5. Click "+ New App" again
+6. Copy in the contents of SwitchBindingInstance.groovy
+7. Click "Save"
+8. Go to the "Apps" page
+9. Click "Add User App"
+10. Click on Switch Bindings
+11. Click "Done"
+12. Click on Switch Bindings in your apps list
+13. Click on "Add a new binding"
+14. Choose your two switches
+15. Click "Done"
