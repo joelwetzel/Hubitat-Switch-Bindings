@@ -3,6 +3,7 @@ An app for Hubitat that binds switches together.  When bound, if either one turn
 
 ## Examples of Usage
 - Suppose you have a smart wall switch in your living room that controls the overhead can lights.  Now you add a lamp in the room, and you either put a smart bulb in it, or plug it into a smart outlet.  You can use this app to bind the wall switch and the lamp together, so that all your lights will always turn on and off together.  They will stay synced whether you control them using the wall switch, an app, or Alexa or Google Home.
+- 3-way lighting controlled by software, not wiring in the walls
 - Sync a fan and a light switch
 - Soon I will be releasing a device driver for a 5 button scene controller.  My driver exposes the buttons/lights as virtual switches.  By using Switch Bindings alongside this, it becomes easy to keep lights synced with the scene controller.
 
