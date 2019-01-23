@@ -19,7 +19,7 @@ definition(
     name: "Switch Bindings",
     namespace: "joelwetzel",
     author: "Joel Wetzel",
-    description: "Bind switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off.",
+    description: "Bind two (or more) switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off.",
     category: "Convenience",
 	iconUrl: "",
     iconX2Url: "",
@@ -91,7 +91,7 @@ def mainPage() {
 		
 		if (state.appInstalled == 'COMPLETE') {
 			section(getFormat("title", "${app.label}")) {
-				paragraph "Bind two switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off. (It works a lot like a z-wave association, but it happens in the Hubitat hub, so that the hub can know/display the updated device states.)"
+				paragraph "Bind two (or more) switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off. (It works a lot like a z-wave association, but it happens in the Hubitat hub, so that the hub can know/display the updated device states.)"
 			}
   			section("<b>Bindings:</b>") {
 				app(name: "anyOpenApp", appName: "Switch Binding Instance", namespace: "joelwetzel", title: "<b>Add a new binding</b>", multiple: true)
