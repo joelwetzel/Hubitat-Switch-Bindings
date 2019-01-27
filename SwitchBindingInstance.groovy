@@ -23,9 +23,9 @@ definition(
     author: "Joel Wetzel",
     description: "Child app that is instantiated by the Switch Bindings app",
     category: "Convenience",
-	iconUrl: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png",
-    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png",
-    iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png")
+	iconUrl: "",
+    iconX2Url: "",
+    iconX3Url: "")
 
 
 def switches = [
@@ -97,46 +97,48 @@ def initialize() {
 	}
 	app.updateLabel(newLabel)
 	
-	state.startInteractingMillis = 0 as long
-	state.controllingDeviceId = 0
+	atomicState.startInteractingMillis = 0 as long
+	atomicState.controllingDeviceId = 0
 }
 
 
 def switchOnHandler(evt) {
-	log.debug "SWITCH BINDING:ON detected"
-	
 	syncEvent(evt, true)
 }
 
 
 def switchOffHandler(evt) {
-	log.debug "SWITCH BINDING:OFF detected"	
-
 	syncEvent(evt, false)
 }
 
 
 def syncEvent(evt, onOrOff) {
-	def switchedDeviceId = evt.deviceId
+	def triggeredDeviceId = evt.deviceId
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 	long now = (new Date()).getTime()
-
+	
 	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
 	// response time, don't sync this event to others to the other devices.
-	if (switchedDeviceId != state.controllingDeviceId &&
-		(now - state.startInteractingMillis as long) < (responseTime as long)) {
+	if (triggeredDeviceId != atomicState.controllingDeviceId &&
+		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+		//log.debug "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
 		return
 	}
-	
-	state.controllingDeviceId = switchedDeviceId
-	state.startInteractingMillis = now
+
+	log.debug "BINDING: ${triggeredDevice.displayName} ${onOrOff ? 'ON' : 'OFF'} detected"	
+
+	atomicState.controllingDeviceId = triggeredDeviceId
+	atomicState.startInteractingMillis = (new Date()).getTime()
 	
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s -> 
-		if (s.deviceId != switchedDeviceId) {
+		if (s.deviceId != triggeredDeviceId) {
 			if (onOrOff) {
+				log.debug "BINDING: ${s.displayName}.on()"
 				s.on()
 			}
 			else {
+				log.debug "BINDING: ${s.displayName}.off()"
 				s.off()
 			}
 		}
