@@ -47,13 +47,23 @@ def responseTime = [
 	]
 
 
+def enableLogging = [
+		name:				"enableLogging",
+		type:				"bool",
+		title:				"Enable Logging?",
+		defaultValue:		false,
+		required:			true
+	]
+
+
 preferences {
 	page(name: "mainPage", title: "<b>Switches to Bind:</b>", install: true, uninstall: true) {
 		section("") {
 			input switches
 		}
 		section ("<b>Advanced Settings</b>") {
-			paragraph "<b>WARNING:</b> Only change Estimated Switch Response Time if you know what you are doing!  Some dimmers don't report their new status until after they have slowly dimmed.  The app uses this estimated duration to make sure that the two bound switches don't infinitely trigger each other.  Only reduce this value if you are using two very fast switches, and you regularly physically toggle both of them right after each other.  (Not a common case!)"
+			input enableLogging
+			paragraph "<b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing!  Some dimmers don't report their new status until after they have slowly dimmed.  The app uses this estimated duration to make sure that the two bound switches don't infinitely trigger each other.  Only reduce this value if you are using two very fast switches, and you regularly physically toggle both of them right after each other.  (Not a common case!)"
 			input responseTime
 		}
 	}
@@ -61,14 +71,14 @@ preferences {
 
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
+	log.info "Installed with settings: ${settings}"
 
 	initialize()
 }
 
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
+	log.info "Updated with settings: ${settings}"
 
 	unsubscribe()
 	initialize()
@@ -78,6 +88,8 @@ def updated() {
 def initialize() {
 	subscribe(switches, "switch.on", switchOnHandler)
 	subscribe(switches, "switch.off", switchOffHandler)
+	subscribe(switches, "level", levelHandler)
+    subscribe(switches, "switch.setLevel", levelHandler)
 
 	// Generate a label for this child app
 	def newLabel = "Bind"
@@ -102,30 +114,37 @@ def initialize() {
 }
 
 
+def log(msg) {
+	if (enableLogging) {
+		log.debug msg
+	}
+}
+
+
 def switchOnHandler(evt) {
-	syncEvent(evt, true)
+	syncSwitchEvent(evt, true)
 }
 
 
 def switchOffHandler(evt) {
-	syncEvent(evt, false)
+	syncSwitchEvent(evt, false)
 }
 
 
-def syncEvent(evt, onOrOff) {
+def syncSwitchEvent(evt, onOrOff) {
 	def triggeredDeviceId = evt.deviceId
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 	long now = (new Date()).getTime()
 	
 	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
-	// response time, don't sync this event to others to the other devices.
+	// response time, don't sync this event to the other devices.
 	if (triggeredDeviceId != atomicState.controllingDeviceId &&
 		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-		//log.debug "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
 		return
 	}
 
-	log.debug "BINDING: ${triggeredDevice.displayName} ${onOrOff ? 'ON' : 'OFF'} detected"	
+	log "BINDING: ${triggeredDevice.displayName} ${onOrOff ? 'ON' : 'OFF'} detected"	
 
 	atomicState.controllingDeviceId = triggeredDeviceId
 	atomicState.startInteractingMillis = (new Date()).getTime()
@@ -134,16 +153,51 @@ def syncEvent(evt, onOrOff) {
 	switches.each { s -> 
 		if (s.deviceId != triggeredDeviceId) {
 			if (onOrOff) {
-				log.debug "BINDING: ${s.displayName}.on()"
+				log "BINDING: ${s.displayName}.on()"
 				s.on()
 			}
 			else {
-				log.debug "BINDING: ${s.displayName}.off()"
+				log "BINDING: ${s.displayName}.off()"
 				s.off()
 			}
 		}
 	}
 }
+
+
+def levelHandler(evt) {
+	def triggeredDeviceId = evt.deviceId
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	long now = (new Date()).getTime()
+	
+	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
+	// response time, don't sync this event to the other devices.
+	if (triggeredDeviceId != atomicState.controllingDeviceId &&
+		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+		return
+	}
+
+	def newLevel = triggeredDevice.currentValue("level")
+	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"	
+
+	atomicState.controllingDeviceId = triggeredDeviceId
+	atomicState.startInteractingMillis = (new Date()).getTime()
+	
+	// Push the event out to every switch except the one that triggered this.
+	switches.each { s -> 
+		if (s.deviceId != triggeredDeviceId) {
+			log "BINDING: ${s.displayName}.setLevel($newLevel)"
+			try {
+				s.setLevel(newLevel)
+			} catch (java.lang.IllegalArgumentException ex) {
+				log "BINDING: ${s.displayName} does not support setLevel()"	
+			}
+		}
+	}
+}
+
+
 
 
 
