@@ -19,7 +19,7 @@ definition(
     name: "Switch Bindings",
     namespace: "joelwetzel",
     author: "Joel Wetzel",
-    description: "Bind two (or more) switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off.",
+    description: "Bind two (or more) switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off.  The binding will also sync dimmer levels, if the switch is a dimmer.",
     category: "Convenience",
 	iconUrl: "",
     iconX2Url: "",
