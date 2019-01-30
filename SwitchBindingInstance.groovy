@@ -37,6 +37,13 @@ def switches = [
 		required:			true
 	]
 
+def masterSwitch = [
+		name:				"masterSwitch",
+		type:				"capability.switch",
+		title:				"Master Switch",
+		multiple:			false,
+		required:			false
+	]
 
 def responseTime = [
 		name:				"responseTime",
@@ -63,8 +70,10 @@ preferences {
 		}
 		section ("<b>Advanced Settings</b>") {
 			input enableLogging
-			paragraph "<b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing!  Some dimmers don't report their new status until after they have slowly dimmed.  The app uses this estimated duration to make sure that the two bound switches don't infinitely trigger each other.  Only reduce this value if you are using two very fast switches, and you regularly physically toggle both of them right after each other.  (Not a common case!)"
+			paragraph "<br/><b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing!  Some dimmers don't report their new status until after they have slowly dimmed.  The app uses this estimated duration to make sure that the two bound switches don't infinitely trigger each other.  Only reduce this value if you are using two very fast switches, and you regularly physically toggle both of them right after each other.  (Not a common case!)"
 			input responseTime
+			paragraph "<br/><b>OPTIONAL:</b> Set a master switch.  (It should be one of the switches you selected above).  If set, the binding will do a re-sync to that switch's state every 5 minutes.  Only use this setting if one of your devices is unreliable."
+			input masterSwitch
 		}
 	}
 }
@@ -111,29 +120,67 @@ def initialize() {
 	
 	atomicState.startInteractingMillis = 0 as long
 	atomicState.controllingDeviceId = 0
-}
-
-
-def log(msg) {
-	if (enableLogging) {
-		log.debug msg
+	
+	// If a master switch is set, then periodically resync
+	if (masterSwitch != null) {
+		runEvery5Minutes(reSyncFromMaster)	
 	}
 }
 
 
+def reSyncFromMaster() {
+	// Is masterSwitch set?
+	if (masterSwitch == null) {
+		log "BINDING: Master Switch not set"
+		return
+	}
+	
+	// Is it one of our selected switches?
+	def s = switches.find { it.deviceId == masterSwitch.deviceId }
+	
+	if (s == null) {
+		log "BINDING: The selected master switch was not in the list of bound switches."
+		return
+	}
+	
+	if ((now() - atomicState.startInteractingMillis as long) < 1000 * 60) {
+		// I don't want resync happening while someone is standing at a switch fiddling with it.
+		// Wait until the system has been stable for a bit.
+		log "BINDING: Skipping reSync because there has been a recent user interaction."
+		return
+	}
+	
+	log "BINDING: reSyncFromMaster()"
+	def onOrOff = (masterSwitch.currentValue("switch") == "on")
+	syncSwitchState(masterSwitch.deviceId, onOrOff)
+}
+
+
 def switchOnHandler(evt) {
-	syncSwitchEvent(evt, true)
+	def triggeredDeviceId = evt.deviceId
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	log "BINDING: ${triggeredDevice.displayName} ON detected"	
+	
+	syncSwitchState(triggeredDeviceId, true)
 }
 
 
 def switchOffHandler(evt) {
-	syncSwitchEvent(evt, false)
+	def triggeredDeviceId = evt.deviceId
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	log "BINDING: ${triggeredDevice.displayName} OFF detected"
+	
+	syncSwitchState(triggeredDeviceId, false)
 }
 
 
-def syncSwitchEvent(evt, onOrOff) {
+def levelHandler(evt) {
 	def triggeredDeviceId = evt.deviceId
-	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	syncLevelState(triggeredDeviceId)
+}
+
+
+def syncSwitchState(triggeredDeviceId, onOrOff) {
 	long now = (new Date()).getTime()
 	
 	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
@@ -143,8 +190,6 @@ def syncSwitchEvent(evt, onOrOff) {
 		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
 		return
 	}
-
-	log "BINDING: ${triggeredDevice.displayName} ${onOrOff ? 'ON' : 'OFF'} detected"	
 
 	atomicState.controllingDeviceId = triggeredDeviceId
 	atomicState.startInteractingMillis = (new Date()).getTime()
@@ -165,8 +210,7 @@ def syncSwitchEvent(evt, onOrOff) {
 }
 
 
-def levelHandler(evt) {
-	def triggeredDeviceId = evt.deviceId
+def syncLevelState(triggeredDeviceId) {
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 	long now = (new Date()).getTime()
 	
@@ -196,6 +240,15 @@ def levelHandler(evt) {
 		}
 	}
 }
+
+
+def log(msg) {
+	if (enableLogging) {
+		log.debug msg
+	}
+}
+
+
 
 
 
