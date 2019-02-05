@@ -19,7 +19,7 @@ definition(
     name: "Switch Bindings",
     namespace: "joelwetzel",
     author: "Joel Wetzel",
-    description: "Bind two (or more) switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off.  The binding will also sync dimmer levels, if the switch is a dimmer.",
+    description: "Bind two (or more) switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off.  The binding will also sync dimmer levels, if the switch is a dimmer, and fan states if the switch is a fan controller.",
     category: "Convenience",
 	iconUrl: "",
     iconX2Url: "",
@@ -32,13 +32,13 @@ preferences {
 
 
 def installed() {
-    log.debug "Installed with settings: ${settings}"
+    log.info "Installed with settings: ${settings}"
     initialize()
 }
 
 
 def updated() {
-    log.debug "Updated with settings: ${settings}"
+    log.info "Updated with settings: ${settings}"
     unsubscribe()
     initialize()
 }
@@ -61,12 +61,6 @@ def installCheck() {
   	else {
     	log.info "Parent Installed OK"
   	}
-}
-
-
-def getImage(type) {
-    def loc = "<img src=https://raw.githubusercontent.com/bptworld/Hubitat/master/resources/images/"
-    if(type == "Blank") return "${loc}blank.png height=35 width=5}>"
 }
 
 
@@ -93,8 +87,8 @@ def mainPage() {
 			section(getFormat("title", "${app.label}")) {
 				paragraph "Bind two (or more) switches together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off. (It works a lot like a z-wave association, but it happens in the Hubitat hub, so that the hub can know/display the updated device states.)"
 			}
-  			section("<b>Bindings:</b>") {
-				app(name: "anyOpenApp", appName: "Switch Binding Instance", namespace: "joelwetzel", title: "<b>Add a new binding</b>", multiple: true)
+  			section("<b>Switch Bindings:</b>") {
+				app(name: "anyOpenApp", appName: "Switch Binding Instance", namespace: "joelwetzel", title: "<b>Add a new switch binding</b>", multiple: true)
 			}
 			section("<b>General</b>") {
        			label title: "Enter a name for parent app (optional)", required: false
