@@ -21,7 +21,7 @@ definition(
     name: "Switch Binding Instance",
     namespace: "joelwetzel",
     author: "Joel Wetzel",
-    description: "Child app that is instantiated by the Switch Bindings app",
+    description: "Child app that is instantiated by the Switch Bindings app.",
     category: "Convenience",
 	iconUrl: "",
     iconX2Url: "",
@@ -37,6 +37,7 @@ def switches = [
 		required:			true
 	]
 
+
 def masterSwitch = [
 		name:				"masterSwitch",
 		type:				"capability.switch",
@@ -44,6 +45,7 @@ def masterSwitch = [
 		multiple:			false,
 		required:			false
 	]
+
 
 def responseTime = [
 		name:				"responseTime",
@@ -99,6 +101,7 @@ def initialize() {
 	subscribe(switches, "switch.off", switchOffHandler)
 	subscribe(switches, "level", levelHandler)
     subscribe(switches, "switch.setLevel", levelHandler)
+	subscribe(switches, "speed", speedHandler)
 
 	// Generate a label for this child app
 	def newLabel = "Bind"
@@ -180,6 +183,12 @@ def levelHandler(evt) {
 }
 
 
+def speedHandler(evt) {
+	def triggeredDeviceId = evt.deviceId
+	syncSpeedState(triggeredDeviceId)
+}
+
+
 def syncSwitchState(triggeredDeviceId, onOrOff) {
 	long now = (new Date()).getTime()
 	
@@ -236,6 +245,38 @@ def syncLevelState(triggeredDeviceId) {
 				s.setLevel(newLevel)
 			} catch (java.lang.IllegalArgumentException ex) {
 				log "BINDING: ${s.displayName} does not support setLevel()"	
+			}
+		}
+	}
+}
+
+
+def syncSpeedState(triggeredDeviceId) {
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	long now = (new Date()).getTime()
+	
+	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
+	// response time, don't sync this event to the other devices.
+	if (triggeredDeviceId != atomicState.controllingDeviceId &&
+		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+		return
+	}
+
+	def newSpeed = triggeredDevice.currentValue("speed")
+	log "BINDING: ${triggeredDevice.displayName} SPEED ${newSpeed} detected"	
+
+	atomicState.controllingDeviceId = triggeredDeviceId
+	atomicState.startInteractingMillis = (new Date()).getTime()
+	
+	// Push the event out to every switch except the one that triggered this.
+	switches.each { s -> 
+		if (s.deviceId != triggeredDeviceId) {
+			log "BINDING: ${s.displayName}.setSpeed($newSpeed)"
+			try {
+				s.setSpeed(newSpeed)
+			} catch (java.lang.IllegalArgumentException ex) {
+				log "BINDING: ${s.displayName} does not support setSpeed()"	
 			}
 		}
 	}
