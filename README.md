@@ -6,7 +6,7 @@ An app for Hubitat that binds two (or more) switches/dimmers together.  When bou
 - 3-way and 4-way lighting controlled by software, not wiring in the walls
 - Sync a fan and a light switch
 - Sync levels across a roomful of dimmers.
-- Soon I will be releasing a device driver for a 5 button scene controller.  My driver exposes the buttons/lights as virtual switches.  By using Switch Bindings alongside this, it becomes easy to keep lights synced with the scene controller.
+- With a 5 button scene controller keypad.  My driver exposes the buttons/lights as virtual switches.  By using Switch Bindings alongside this, it becomes easy to keep lights synced with the scene controller.  See my keypad driver here: [https://github.com/joelwetzel/Hubitat-Cooper-Aspire-Scene-Controller](https://github.com/joelwetzel/Hubitat-Cooper-Aspire-Scene-Controller)
 
 ## Installation
 1. On the Hubitat hub, go to the "Apps Code" page
