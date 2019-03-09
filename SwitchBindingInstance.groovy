@@ -46,6 +46,13 @@ def masterSwitch = [
 		required:			false
 	]
 
+def nameOverride = [
+		name:				"nameOverride",
+		type:				"string",
+		title:				"Binding Name",
+		multiple:			false,
+		required:			false
+	]
 
 def responseTime = [
 		name:				"responseTime",
@@ -76,6 +83,8 @@ preferences {
 			input responseTime
 			paragraph "<br/><b>OPTIONAL:</b> Set a master switch.  (It should be one of the switches you selected above).  If set, the binding will do a re-sync to that switch's state every 5 minutes.  Only use this setting if one of your devices is unreliable."
 			input masterSwitch
+			paragraph "<br/><b>OPTIONAL:</b> Override the displayed name of the binding."
+			input nameOverride
 		}
 	}
 }
@@ -119,6 +128,11 @@ def initialize() {
 			newLabel = newLabel + ","	
 		}
 	}
+	
+	if (nameOverride && nameOverride.size() > 0) {
+		newLabel = nameOverride	
+	}
+	
 	app.updateLabel(newLabel)
 	
 	atomicState.startInteractingMillis = 0 as long
