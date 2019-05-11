@@ -31,7 +31,7 @@ definition(
 def switches = [
 		name:				"switches",
 		type:				"capability.switch",
-		title:				"Switches",
+		title:				"Switches to Bind",
 		description:		"Select the switches to bind.",
 		multiple:			true,
 		required:			true
@@ -66,25 +66,29 @@ def responseTime = [
 def enableLogging = [
 		name:				"enableLogging",
 		type:				"bool",
-		title:				"Enable Logging?",
+		title:				"Enable Debug Logging?",
 		defaultValue:		false,
 		required:			true
 	]
 
 
 preferences {
-	page(name: "mainPage", title: "<b>Switches to Bind:</b>", install: true, uninstall: true) {
+	page(name: "mainPage", title: "", install: true, uninstall: true) {
+		section(getFormat("title", "Switch Bindings Instance")) {
+		}
 		section("") {
 			input switches
 		}
-		section ("<b>Advanced Settings</b>") {
-			input enableLogging
+		section ("<b>Advanced Settings</b>", hideable: true, hidden: true) {
 			paragraph "<br/><b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing!  Some dimmers don't report their new status until after they have slowly dimmed.  The app uses this estimated duration to make sure that the two bound switches don't infinitely trigger each other.  Only reduce this value if you are using two very fast switches, and you regularly physically toggle both of them right after each other.  (Not a common case!)"
 			input responseTime
 			paragraph "<br/><b>OPTIONAL:</b> Set a master switch.  (It should be one of the switches you selected above).  If set, the binding will do a re-sync to that switch's state every 5 minutes.  Only use this setting if one of your devices is unreliable."
 			input masterSwitch
 			paragraph "<br/><b>OPTIONAL:</b> Override the displayed name of the binding."
 			input nameOverride
+		}
+		section () {
+			input enableLogging
 		}
 	}
 }
@@ -294,6 +298,13 @@ def syncSpeedState(triggeredDeviceId) {
 			}
 		}
 	}
+}
+
+
+def getFormat(type, myText=""){
+	if(type == "header-green") return "<div style='color:#ffffff;font-weight: bold;background-color:#81BC00;border: 1px solid;box-shadow: 2px 3px #A9A9A9'>${myText}</div>"
+    if(type == "line") return "\n<hr style='background-color:#1A77C9; height: 1px; border: 0;'></hr>"
+	if(type == "title") return "<h2 style='color:#1A77C9;font-weight: bold'>${myText}</h2>"
 }
 
 
