@@ -37,6 +37,14 @@ def switches = [
 		required:			true
 	]
 
+def fanControls = [
+		name:				"fanControls",
+		type:				"capability.fanControl",
+		title:				"Fan Controllers to Bind",
+		description:		"Select the fan controllers to bind.",
+		multiple:			true,
+		required:			true
+	]
 
 def masterSwitch = [
 		name:				"masterSwitch",
@@ -78,6 +86,7 @@ preferences {
 		}
 		section("") {
 			input switches
+            input fanControls
 		}
 		section ("<b>Advanced Settings</b>", hideable: true, hidden: true) {
 			paragraph "<br/><b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing!  Some dimmers don't report their new status until after they have slowly dimmed.  The app uses this estimated duration to make sure that the two bound switches don't infinitely trigger each other.  Only reduce this value if you are using two very fast switches, and you regularly physically toggle both of them right after each other.  (Not a common case!)"
@@ -116,6 +125,9 @@ def initialize() {
     subscribe(switches, "switch.setLevel", levelHandler)
 	subscribe(switches, "speed", speedHandler)
 
+   	subscribe(fanControls, "speed", speedHandler)
+
+
 	// Generate a label for this child app
 	def newLabel = "Bind"
 	for (def i = 0; i < switches.size(); i++) {
@@ -132,6 +144,10 @@ def initialize() {
 			newLabel = newLabel + ","	
 		}
 	}
+    
+    for (def j = 0; j < fanControls.size(); j++) {
+        newLabel = newLabel + "," + " ${fanControls[j].displayName}"
+    }
 	
 	if (nameOverride && nameOverride.size() > 0) {
 		newLabel = nameOverride	
@@ -271,6 +287,10 @@ def syncLevelState(triggeredDeviceId) {
 
 def syncSpeedState(triggeredDeviceId) {
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+    if (!triggeredDevice) {
+        triggeredDevice = fanControls.find { it.deviceId == triggeredDeviceId }
+    }
+    
 	long now = (new Date()).getTime()
 	
 	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
@@ -298,6 +318,18 @@ def syncSpeedState(triggeredDeviceId) {
 			}
 		}
 	}
+    
+    // Push the event out to every fan controller except the one that triggered this.
+	fanControls.each { s -> 
+		if (s.deviceId != triggeredDeviceId) {
+			log "BINDING: ${s.displayName}.setSpeed($newSpeed)"
+			try {
+				s.setSpeed(newSpeed)
+			} catch (java.lang.IllegalArgumentException ex) {
+				log "BINDING: ${s.displayName} does not support setSpeed()"	
+			}
+		}
+	}
 }
 
 
@@ -313,21 +345,5 @@ def log(msg) {
 		log.debug msg
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
