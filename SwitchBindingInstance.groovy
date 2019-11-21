@@ -34,7 +34,8 @@ def switches = [
 		title:				"Switches to Bind",
 		description:		"Select the switches to bind.",
 		multiple:			true,
-		required:			true
+		required:			true,
+		submitOnChange: 	true
 	]
 
 
@@ -43,7 +44,16 @@ def masterSwitch = [
 		type:				"capability.switch",
 		title:				"Master Switch",
 		multiple:			false,
-		required:			false
+		required:			false,
+		submitOnChange: 	true
+	]
+
+def pollMaster = [
+		name:				'pollMaster',
+		type:				'bool',
+		title:				'Poll master and synchronize all the devices',
+		defaultValue:		false,
+		required:			true
 	]
 
 def nameOverride = [
@@ -79,11 +89,20 @@ preferences {
 		section("") {
 			input switches
 		}
-		section ("<b>Advanced Settings</b>", hideable: true, hidden: true) {
+		section ("<b>Advanced Settings</b>", hideable: true, hidden: false) {
 			paragraph "<br/><b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing!  Some dimmers don't report their new status until after they have slowly dimmed.  The app uses this estimated duration to make sure that the two bound switches don't infinitely trigger each other.  Only reduce this value if you are using two very fast switches, and you regularly physically toggle both of them right after each other.  (Not a common case!)"
 			input responseTime
-			paragraph "<br/><b>OPTIONAL:</b> Set a master switch.  (It should be one of the switches you selected above).  If set, the binding will do a re-sync to that switch's state every 5 minutes.  Only use this setting if one of your devices is unreliable."
+			paragraph "<br/><b>OPTIONAL:</b> Set a master switch.  (It should be one of the switches you selected above). If set, only changes to this device will be reflected to the other devices."
 			input masterSwitch
+			if ( !(settings?.switches?.find { it?.deviceId == settings?.masterSwitch?.deviceId })) {
+				paragraph "ERROR: ${masterSwitch.displayName} is not one of the selected switches! Please try again"
+				settings?.masterSwitch == null
+				app.clearSetting('masterSwitch')
+			}
+			if (masterSwitch != null) {
+				paragraph "If set, the binding will do a re-sync to the master switch's state every 5 minutes. Only use this setting if one of your devices is unreliable."
+				input pollMaster
+			}
 			paragraph "<br/><b>OPTIONAL:</b> Override the displayed name of the binding."
 			input nameOverride
 		}
@@ -105,45 +124,71 @@ def updated() {
 	log.info "Updated with settings: ${settings}"
 
 	unsubscribe()
+	unschedule()
 	initialize()
 }
 
 
 def initialize() {
-	subscribe(switches, "switch.on", switchOnHandler)
-	subscribe(switches, "switch.off", switchOffHandler)
-	subscribe(switches, "level", levelHandler)
-    subscribe(switches, "switch.setLevel", levelHandler)
-	subscribe(switches, "speed", speedHandler)
-
-	// Generate a label for this child app
-	def newLabel = "Bind"
-	for (def i = 0; i < switches.size(); i++) {
-		if (i == (switches.size() - 1) && switches.size() > 1) {
-			if (switches.size() == 2) {
-				newLabel = newLabel + " to"
-			}
-			else {
-				newLabel = newLabel + " and"
-			}
+	if (masterSwitch == null) {
+		subscribe(switches, "switch.on", switchOnHandler)
+		subscribe(switches, "switch.off", switchOffHandler)
+		subscribe(switches, "level", levelHandler)
+		subscribe(switches, "switch.setLevel", levelHandler)
+		subscribe(switches, "speed", speedHandler)
+	} else {
+		// Is the masterSwitch one of our selected switches?
+		def s = switches.find { it.deviceId == masterSwitch.deviceId }
+		if (s == null) {
+			log "BINDING: The selected master switch was not in the list of bound switches."
+			return false
 		}
-		newLabel = newLabel + " ${switches[i].displayName}"
-		if (i != (switches.size() - 1) && switches.size() > 2) {
-			newLabel = newLabel + ","	
-		}
+		
+		subscribe(masterSwitch, "switch.on", switchOnHandler)
+		subscribe(masterSwitch, "switch.off", switchOffHandler)
+		subscribe(masterSwitch, "level", levelHandler)
+		subscribe(masterSwitch, "switch.setLevel", levelHandler)
+		subscribe(masterSwitch, "speed", speedHandler)
 	}
-	
+	// Generate a label for this child app
+	String newLabel
 	if (nameOverride && nameOverride.size() > 0) {
 		newLabel = nameOverride	
+	} else {
+		newLabel = "Bind"
+		def switchList = []
+		if (masterSwitch != null) {
+			switches.each {
+				if (it.deviceId != masterSwitch.deviceId) switchList << it
+			}
+		} else {
+			switchList = switches
+		}
+		log.debug "switches: ${switches}, switchList: ${switchList}"
+		def ss = switchList.size()
+		for (def i = 0; i < ss; i++) {
+			if ((i == (ss - 1)) && (ss > 1)) {
+				if ((masterSwitch == null) && (ss == 2)) {
+					newLabel = newLabel + " to"
+				}
+				else {
+					newLabel = newLabel + " and"
+				}
+			}
+			newLabel = newLabel + " ${switchList[i].displayName}"
+			if ((i != (ss - 1)) && (ss > 2)) {
+				newLabel = newLabel + ","	
+			}
+		}
+		if (masterSwitch) newLabel = newLabel + ' to ' + masterSwitch.displayName
 	}
-	
 	app.updateLabel(newLabel)
 	
 	atomicState.startInteractingMillis = 0 as long
 	atomicState.controllingDeviceId = 0
 	
 	// If a master switch is set, then periodically resync
-	if (masterSwitch != null) {
+	if ((masterSwitch != null) && pollMaster) {
 		runEvery5Minutes(reSyncFromMaster)	
 	}
 }
@@ -197,6 +242,8 @@ def switchOffHandler(evt) {
 
 def levelHandler(evt) {
 	def triggeredDeviceId = evt.deviceId
+	// Only reflect level events while the switch is on (workaround Zigbee driver problem that sends level immediately after turning off)
+	if (evt.device.currentValue('switch', true) == 'off') return
 	syncLevelState(triggeredDeviceId)
 }
 
@@ -226,16 +273,15 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 		if (s.deviceId != triggeredDeviceId) {
 			if (onOrOff) {
 				log "BINDING: ${s.displayName}.on()"
-				s.on()
+				if (s.currentValue('switch', true) != 'on') s.on()
 			}
 			else {
 				log "BINDING: ${s.displayName}.off()"
-				s.off()
+				if (s.currentValue('switch', true) != 'off') s.off()
 			}
 		}
 	}
 }
-
 
 def syncLevelState(triggeredDeviceId) {
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
@@ -249,21 +295,24 @@ def syncLevelState(triggeredDeviceId) {
 		return
 	}
 
-	def newLevel = triggeredDevice.currentValue("level")
-	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"	
+	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null
+	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"
+	if (newLevel == null) return
 
 	atomicState.controllingDeviceId = triggeredDeviceId
 	atomicState.startInteractingMillis = (new Date()).getTime()
 	
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s -> 
-		if (s.deviceId != triggeredDeviceId) {
-			log "BINDING: ${s.displayName}.setLevel($newLevel)"
-			try {
+		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setLevel')) {
+			if (s.currentValue('level', true) != newLevel) {
+				log "BINDING: ${s.displayName}.setLevel($newLevel)"
 				s.setLevel(newLevel)
-			} catch (java.lang.IllegalArgumentException ex) {
-				log "BINDING: ${s.displayName} does not support setLevel()"	
+			} else {
+				log "BINDING: ${s.displayName} is already at level $newLevel"
 			}
+		} else {
+			log "BINDING: ${s.displayName} does not support setLevel()"	
 		}
 	}
 }
@@ -289,13 +338,15 @@ def syncSpeedState(triggeredDeviceId) {
 	
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s -> 
-		if (s.deviceId != triggeredDeviceId) {
-			log "BINDING: ${s.displayName}.setSpeed($newSpeed)"
-			try {
+		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setSpeed')){
+			if (s.currentValue('speed', true) != newSpeed) {
+				log "BINDING: ${s.displayName}.setSpeed($newSpeed)"
 				s.setSpeed(newSpeed)
-			} catch (java.lang.IllegalArgumentException ex) {
-				log "BINDING: ${s.displayName} does not support setSpeed()"	
+			} else {
+				log "BINDING: ${s.displayName} is already at speed $newSpeed"	
 			}
+		} else {
+			log "BINDING: ${s.displayName} does not support setSpeed()"	
 		}
 	}
 }
