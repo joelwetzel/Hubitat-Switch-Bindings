@@ -17,82 +17,69 @@
 import groovy.json.*
 	
 definition(
-	parent: "joelwetzel:Switch Bindings",
-    name: "Switch Binding Instance",
-    namespace: "joelwetzel",
-    author: "Joel Wetzel",
+	parent: 	"joelwetzel:Switch Bindings",
+    name: 		"Switch Binding Instance",
+    namespace: 	"joelwetzel",
+    author: 	"Joel Wetzel",
     description: "Child app that is instantiated by the Switch Bindings app.",
-    category: "Convenience",
-	iconUrl: "",
-    iconX2Url: "",
-    iconX3Url: "")
-
-
-def switches = [
-		name:				"switches",
-		type:				"capability.switch",
-		title:				"Switches to Bind",
-		description:		"Select the switches to bind.",
-		multiple:			true,
-		required:			true
-	]
-
-
-def masterSwitch = [
-		name:				"masterSwitch",
-		type:				"capability.switch",
-		title:				"Master Switch",
-		multiple:			false,
-		required:			false
-	]
-
-def nameOverride = [
-		name:				"nameOverride",
-		type:				"string",
-		title:				"Binding Name",
-		multiple:			false,
-		required:			false
-	]
-
-def responseTime = [
-		name:				"responseTime",
-		type:				"long",
-		title:				"Estimated Switch Response Time (in milliseconds)",
-		defaultValue:		5000,
-		required:			true
-	]
-
-
-def enableLogging = [
-		name:				"enableLogging",
-		type:				"bool",
-		title:				"Enable Debug Logging?",
-		defaultValue:		false,
-		required:			true
-	]
-
+    category: 	"Convenience",
+	iconUrl: 	"",
+    iconX2Url: 	"",
+    iconX3Url: 	"")
 
 preferences {
-	page(name: "mainPage", title: "", install: true, uninstall: true) {
-		section(getFormat("title", "Switch Bindings Instance")) {
+	page(name: "mainPage")
+}
+def mainPage() {
+	dynamicPage(name: "mainPage", title: "", install: true, uninstall: true) {
+        if (!app.label) {
+			app.updateLabel(app.name)
+		}
+		section(getFormat("title", (app?.label ?: app?.name).toString())) {
+			input(name:	"nameOverride", type: "string", title: "New name for this ${app.name}?", multiple: false, required: false, submitOnChange: true)
+			if (settings.nameOverride) {
+				app.updateLabel(settings.nameOverride)
+			}
 		}
 		section("") {
-			input switches
+			input(name:	"switches",	type: "capability.switch", title: "Switches to Bind", description: "Select the switches to bind.", multiple: true, required: true, submitOnChange: true)
 		}
-		section ("<b>Advanced Settings</b>", hideable: true, hidden: true) {
-			paragraph "<br/><b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing!  Some dimmers don't report their new status until after they have slowly dimmed.  The app uses this estimated duration to make sure that the two bound switches don't infinitely trigger each other.  Only reduce this value if you are using two very fast switches, and you regularly physically toggle both of them right after each other.  (Not a common case!)"
-			input responseTime
-			paragraph "<br/><b>OPTIONAL:</b> Set a master switch.  (It should be one of the switches you selected above).  If set, the binding will do a re-sync to that switch's state every 5 minutes.  Only use this setting if one of your devices is unreliable."
-			input masterSwitch
-			paragraph "<br/><b>OPTIONAL:</b> Override the displayed name of the binding."
-			input nameOverride
+		section ("<b>Advanced Settings</b>", hideable: true, hidden: false) {
+			def masterChoices = [:]
+			settings?.switches?.each {
+				masterChoices << [(it.deviceId.toString()): it.displayName.toString()]
+			}
+			if (settings.masterSwitch) {
+				// Installed over an older version - convert the settings
+				def masterId = settings.masterSwitch.deviceId.toString()
+				app.updateSetting('masterSwitchId', masterId)
+				settings.masterSwitchId = masterId
+				app.updateSetting('pollMaster', true)
+				settings.pollMaster = true
+				app.removeSetting('masterSwitch')
+			}
+			input(name:	"masterSwitchId",	type: "enum", title: "Select an (optional) 'Master' switch", multiple: false, required: false, submitOnChange: true, options: (masterChoices))
+			def masterSwitch 
+			if (masterSwitchId != null) masterSwitch = settings?.switches?.find { it?.deviceId?.toString() == settings?.masterSwitchId.toString() }
+			if (masterSwitch != null) {
+				input(name:	"masterOnly", type:	"bool", title: "Bind to changes on ${masterSwitch?.displayName} only?", multiple: false, defaultValue: false, submitOnChange: true)
+				input(name:	'pollMaster', type:	'bool', title: "Poll ${masterSwitch.displayName} and synchronize all the devices?", defaultValue: false, required: true, submitOnChange: true)
+				if (settings?.pollMaster) {
+					input(name: "pollingInterval", title:"Polling Interval (in minutes)?", type: "enum", required:false, multiple:false, defaultValue:"5", submitOnChange: true,
+						  options:["1", "2", "3", "5", "10", "15", "30"])
+					if (settings.pollingInterval == null) { app.updateSetting('pollingInterval', "5"); settings.pollingInterval = "5"; }
+				}
+			}
+			paragraph "<br/><b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing! Some dimmers don't report their new status until after they have slowly dimmed. " +
+					  "The app uses this estimated duration to make sure that the bound switches don't infinitely trigger each other. Only reduce this value if you are using very fast switches, " +
+					  "and you regularly physically toggle 2 (or more) of them right after each other (not a common case)."
+			input(name:	"responseTime",	type: "long", title: "Estimated Switch Response Time (in milliseconds)", defaultValue: 5000, required: true)
 		}
 		section () {
-			input enableLogging
+			input(name:	"enableLogging", type: "bool", title: "Enable Debug Logging?", defaultValue: false,	required: true)
 		}
 	}
 }
-
 
 def installed() {
 	log.info "Installed with settings: ${settings}"
@@ -100,67 +87,79 @@ def installed() {
 	initialize()
 }
 
-
 def updated() {
 	log.info "Updated with settings: ${settings}"
 
 	unsubscribe()
+	unschedule()
 	initialize()
 }
 
-
 def initialize() {
-	subscribe(switches, "switch.on", switchOnHandler)
-	subscribe(switches, "switch.off", switchOffHandler)
-	subscribe(switches, "level", levelHandler)
-    subscribe(switches, "switch.setLevel", levelHandler)
-	subscribe(switches, "speed", speedHandler)
-
+	def masterSwitch 
+	if ((settings.masterSwitchId == null) || !settings.masterOnly) {
+		subscribe(switches, 	"switch.on", 		switchOnHandler)
+		subscribe(switches, 	"switch.off", 		switchOffHandler)
+		subscribe(switches, 	"level", 			levelHandler)
+		subscribe(switches, 	"switch.setLevel", 	levelHandler)
+		subscribe(switches, 	"speed", 			speedHandler)
+	} else if (settings.masterSwitchId && settings.masterOnly) {
+		masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
+		
+		subscribe(masterSwitch, "switch.on", 		switchOnHandler)
+		subscribe(masterSwitch, "switch.off", 		switchOffHandler)
+		subscribe(masterSwitch, "level", 			levelHandler)
+		subscribe(masterSwitch, "switch.setLevel", 	levelHandler)
+		subscribe(masterSwitch, "speed", 			speedHandler)
+	}
+	
 	// Generate a label for this child app
-	def newLabel = "Bind"
-	for (def i = 0; i < switches.size(); i++) {
-		if (i == (switches.size() - 1) && switches.size() > 1) {
-			if (switches.size() == 2) {
-				newLabel = newLabel + " to"
+	String newLabel
+	if (settings.nameOverride && settings.nameOverride.size() > 0) {
+		newLabel = settings.nameOverride	
+	} else {
+		newLabel = "Bind"
+		def switchList = []
+		if (masterSwitch != null) {
+			switches.each {
+				if (it.deviceId.toString() != masterSwitchId.toString()) switchList << it
 			}
-			else {
-				newLabel = newLabel + " and"
+		} else {
+			switchList = switches
+		}
+		log "switches: ${switches}, switchList: ${switchList}"
+		def ss = switchList.size()
+		for (def i = 0; i < ss; i++) {
+			if ((i == (ss - 1)) && (ss > 1)) {
+				if ((masterSwitch == null) && (ss == 2)) {
+					newLabel = newLabel + " to"
+				}
+				else {
+					newLabel = newLabel + " and"
+				}
+			}
+			newLabel = newLabel + " ${switchList[i].displayName}"
+			if ((i != (ss - 1)) && (ss > 2)) {
+				newLabel = newLabel + ","	
 			}
 		}
-		newLabel = newLabel + " ${switches[i].displayName}"
-		if (i != (switches.size() - 1) && switches.size() > 2) {
-			newLabel = newLabel + ","	
-		}
+		if (masterSwitch) newLabel = newLabel + ' to ' + masterSwitch.displayName
 	}
-	
-	if (nameOverride && nameOverride.size() > 0) {
-		newLabel = nameOverride	
-	}
-	
 	app.updateLabel(newLabel)
 	
 	atomicState.startInteractingMillis = 0 as long
 	atomicState.controllingDeviceId = 0
 	
 	// If a master switch is set, then periodically resync
-	if (masterSwitch != null) {
+	if ((masterSwitch != null) && settings.pollMaster) {
 		runEvery5Minutes(reSyncFromMaster)	
 	}
 }
 
-
 def reSyncFromMaster() {
 	// Is masterSwitch set?
-	if (masterSwitch == null) {
+	if (masterSwitchId == null) {
 		log "BINDING: Master Switch not set"
-		return
-	}
-	
-	// Is it one of our selected switches?
-	def s = switches.find { it.deviceId == masterSwitch.deviceId }
-	
-	if (s == null) {
-		log "BINDING: The selected master switch was not in the list of bound switches."
 		return
 	}
 	
@@ -173,39 +172,32 @@ def reSyncFromMaster() {
 	
 	log "BINDING: reSyncFromMaster()"
 	def onOrOff = (masterSwitch.currentValue("switch") == "on")
-	syncSwitchState(masterSwitch.deviceId, onOrOff)
+	syncSwitchState(masterSwitchId, onOrOff)
 }
-
 
 def switchOnHandler(evt) {
-	def triggeredDeviceId = evt.deviceId
-	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
-	log "BINDING: ${triggeredDevice.displayName} ON detected"	
+	log "BINDING: ${evt.displayName} ON detected"	
 	
-	syncSwitchState(triggeredDeviceId, true)
+	syncSwitchState(evt.deviceId, true)
+	syncLevelState(evt.deviceId, true)		// Double check that the level is correct
 }
-
 
 def switchOffHandler(evt) {
-	def triggeredDeviceId = evt.deviceId
-	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
-	log "BINDING: ${triggeredDevice.displayName} OFF detected"
+	log "BINDING: ${evt.displayName} OFF detected"
 	
-	syncSwitchState(triggeredDeviceId, false)
+	syncSwitchState(evt.deviceId, false)
 }
-
 
 def levelHandler(evt) {
-	def triggeredDeviceId = evt.deviceId
-	syncLevelState(triggeredDeviceId)
-}
+	// Only reflect level events while the switch is on (workaround Zigbee driver problem that sends level immediately after turning off)
+	if (evt.device.currentValue('switch', true) == 'off') return
 
+	syncLevelState(evt.deviceId)
+}
 
 def speedHandler(evt) {
-	def triggeredDeviceId = evt.deviceId
-	syncSpeedState(triggeredDeviceId)
+	syncSpeedState(evt.deviceId)
 }
-
 
 def syncSwitchState(triggeredDeviceId, onOrOff) {
 	long now = (new Date()).getTime()
@@ -225,20 +217,18 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 	switches.each { s -> 
 		if (s.deviceId != triggeredDeviceId) {
 			if (onOrOff) {
-				log "BINDING: ${s.displayName}.on()"
-				s.on()
+				log "BINDING: ${s.displayName} -> on()"
+				if (s.currentValue('switch', true) != 'on') s.on()
 			}
 			else {
-				log "BINDING: ${s.displayName}.off()"
-				s.off()
+				log "BINDING: ${s.displayName} ->off()"
+				if (s.currentValue('switch', true) != 'off') s.off()
 			}
 		}
 	}
 }
-
 
 def syncLevelState(triggeredDeviceId) {
-	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 	long now = (new Date()).getTime()
 	
 	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
@@ -248,29 +238,31 @@ def syncLevelState(triggeredDeviceId) {
 		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
 		return
 	}
-
-	def newLevel = triggeredDevice.currentValue("level")
-	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"	
+	
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null
+	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"
+	if (newLevel == null) return
 
 	atomicState.controllingDeviceId = triggeredDeviceId
 	atomicState.startInteractingMillis = (new Date()).getTime()
 	
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s -> 
-		if (s.deviceId != triggeredDeviceId) {
-			log "BINDING: ${s.displayName}.setLevel($newLevel)"
-			try {
+		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setLevel')) {
+			if (s.currentValue('level', true) != newLevel) {
+				log "BINDING: ${s.displayName} -> setLevel($newLevel)"
 				s.setLevel(newLevel)
-			} catch (java.lang.IllegalArgumentException ex) {
-				log "BINDING: ${s.displayName} does not support setLevel()"	
+			} else {
+				log "BINDING: ${s.displayName} is already at level $newLevel"
 			}
+		} else {
+			log "BINDING: ${s.displayName} does not support setLevel()"	
 		}
 	}
 }
-
 
 def syncSpeedState(triggeredDeviceId) {
-	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 	long now = (new Date()).getTime()
 	
 	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
@@ -281,32 +273,34 @@ def syncSpeedState(triggeredDeviceId) {
 		return
 	}
 
-	def newSpeed = triggeredDevice.currentValue("speed")
-	log "BINDING: ${triggeredDevice.displayName} SPEED ${newSpeed} detected"	
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	def newSpeed = triggeredDevice.hasAttribute('speed') ? triggeredDevice.currentValue("speed") : null
+	log "BINDING: ${triggeredDevice.displayName} SPEED ${newSpeed} detected"
+	if (newSpeed == null) return
 
 	atomicState.controllingDeviceId = triggeredDeviceId
 	atomicState.startInteractingMillis = (new Date()).getTime()
 	
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s -> 
-		if (s.deviceId != triggeredDeviceId) {
-			log "BINDING: ${s.displayName}.setSpeed($newSpeed)"
-			try {
+		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setSpeed')){
+			if (s.currentValue('speed', true) != newSpeed) {
+				log "BINDING: ${s.displayName} -> setSpeed($newSpeed)"
 				s.setSpeed(newSpeed)
-			} catch (java.lang.IllegalArgumentException ex) {
-				log "BINDING: ${s.displayName} does not support setSpeed()"	
+			} else {
+				log "BINDING: ${s.displayName} is already at speed $newSpeed"	
 			}
+		} else {
+			log "BINDING: ${s.displayName} does not support setSpeed()"	
 		}
 	}
 }
-
 
 def getFormat(type, myText=""){
 	if(type == "header-green") return "<div style='color:#ffffff;font-weight: bold;background-color:#81BC00;border: 1px solid;box-shadow: 2px 3px #A9A9A9'>${myText}</div>"
     if(type == "line") return "\n<hr style='background-color:#1A77C9; height: 1px; border: 0;'></hr>"
 	if(type == "title") return "<h2 style='color:#1A77C9;font-weight: bold'>${myText}</h2>"
 }
-
 
 def log(msg) {
 	if (enableLogging) {
