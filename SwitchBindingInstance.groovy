@@ -30,13 +30,16 @@ definition(
 preferences {
 	page(name: "mainPage")
 }
+
+
 def mainPage() {
 	dynamicPage(name: "mainPage", title: "", install: true, uninstall: true) {
         if (!app.label) {
 			app.updateLabel(app.name)
 		}
 		section(getFormat("title", (app?.label ?: app?.name).toString())) {
-			input(name:	"nameOverride", type: "string", title: "New name for this ${app.name}?", multiple: false, required: false, submitOnChange: true)
+			input(name:	"nameOverride", type: "string", title: "Custom name for this ${app.name}?", multiple: false, required: false, submitOnChange: true)
+            
 			if (settings.nameOverride) {
 				app.updateLabel(settings.nameOverride)
 			}
@@ -46,9 +49,11 @@ def mainPage() {
 		}
 		section ("<b>Advanced Settings</b>", hideable: true, hidden: false) {
 			def masterChoices = [:]
+            
 			settings?.switches?.each {
 				masterChoices << [(it.deviceId.toString()): it.displayName.toString()]
 			}
+            
 			if (settings.masterSwitch) {
 				// Installed over an older version - convert the settings
 				def masterId = settings.masterSwitch.deviceId.toString()
@@ -58,16 +63,21 @@ def mainPage() {
 				settings.pollMaster = true
 				app.removeSetting('masterSwitch')
 			}
+            
 			input(name:	"masterSwitchId",	type: "enum", title: "Select an (optional) 'Master' switch", multiple: false, required: false, submitOnChange: true, options: (masterChoices))
 			def masterSwitch 
-			if (masterSwitchId != null) masterSwitch = settings?.switches?.find { it?.deviceId?.toString() == settings?.masterSwitchId.toString() }
+            if (masterSwitchId != null) {
+                masterSwitch = settings?.switches?.find { it?.deviceId?.toString() == settings?.masterSwitchId.toString() }
+            }
 			if (masterSwitch != null) {
-				input(name:	"masterOnly", type:	"bool", title: "Bind to changes on ${masterSwitch?.displayName} only?", multiple: false, defaultValue: false, submitOnChange: true)
+				input(name:	"masterOnly", type:	"bool", title: "Bind to changes on ${masterSwitch?.displayName} only? (One-way binding instead of the normal two-way binding.)", multiple: false, defaultValue: false, submitOnChange: true)
 				input(name:	'pollMaster', type:	'bool', title: "Poll ${masterSwitch.displayName} and synchronize all the devices?", defaultValue: false, required: true, submitOnChange: true)
 				if (settings?.pollMaster) {
 					input(name: "pollingInterval", title:"Polling Interval (in minutes)?", type: "enum", required:false, multiple:false, defaultValue:"5", submitOnChange: true,
 						  options:["1", "2", "3", "5", "10", "15", "30"])
-					if (settings.pollingInterval == null) { app.updateSetting('pollingInterval', "5"); settings.pollingInterval = "5"; }
+					if (settings.pollingInterval == null) { 
+                        app.updateSetting('pollingInterval', "5"); settings.pollingInterval = "5";
+                    }
 				}
 			}
 			paragraph "<br/><b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing! Some dimmers don't report their new status until after they have slowly dimmed. " +
@@ -81,11 +91,13 @@ def mainPage() {
 	}
 }
 
+
 def installed() {
 	log.info "Installed with settings: ${settings}"
 
 	initialize()
 }
+
 
 def updated() {
 	log.info "Updated with settings: ${settings}"
@@ -95,8 +107,10 @@ def updated() {
 	initialize()
 }
 
+
 def initialize() {
 	def masterSwitch 
+    
 	if ((settings.masterSwitchId == null) || !settings.masterOnly) {
 		subscribe(switches, 	"switch.on", 		switchOnHandler)
 		subscribe(switches, 	"switch.off", 		switchOffHandler)
@@ -120,14 +134,19 @@ def initialize() {
 	} else {
 		newLabel = "Bind"
 		def switchList = []
+        
 		if (masterSwitch != null) {
 			switches.each {
-				if (it.deviceId.toString() != masterSwitchId.toString()) switchList << it
+                if (it.deviceId.toString() != masterSwitchId.toString()) {
+                    switchList << it
+                }
 			}
 		} else {
 			switchList = switches
 		}
+        
 		log "switches: ${switches}, switchList: ${switchList}"
+        
 		def ss = switchList.size()
 		for (def i = 0; i < ss; i++) {
 			if ((i == (ss - 1)) && (ss > 1)) {
@@ -143,7 +162,10 @@ def initialize() {
 				newLabel = newLabel + ","	
 			}
 		}
-		if (masterSwitch) newLabel = newLabel + ' to ' + masterSwitch.displayName
+        
+        if (masterSwitch) {
+            newLabel = newLabel + ' to ' + masterSwitch.displayName
+        }
 	}
 	app.updateLabel(newLabel)
 	
@@ -155,6 +177,7 @@ def initialize() {
 		runEvery5Minutes(reSyncFromMaster)	
 	}
 }
+
 
 def reSyncFromMaster() {
 	// Is masterSwitch set?
@@ -175,6 +198,7 @@ def reSyncFromMaster() {
 	syncSwitchState(masterSwitchId, onOrOff)
 }
 
+
 def switchOnHandler(evt) {
 	log "BINDING: ${evt.displayName} ON detected"	
 	
@@ -182,11 +206,13 @@ def switchOnHandler(evt) {
 	syncLevelState(evt.deviceId)		// Double check that the level is correct
 }
 
+
 def switchOffHandler(evt) {
 	log "BINDING: ${evt.displayName} OFF detected"
 	
 	syncSwitchState(evt.deviceId, false)
 }
+
 
 def levelHandler(evt) {
 	// Only reflect level events while the switch is on (workaround Zigbee driver problem that sends level immediately after turning off)
@@ -195,9 +221,11 @@ def levelHandler(evt) {
 	syncLevelState(evt.deviceId)
 }
 
+
 def speedHandler(evt) {
 	syncSpeedState(evt.deviceId)
 }
+
 
 def syncSwitchState(triggeredDeviceId, onOrOff) {
 	long now = (new Date()).getTime()
@@ -218,15 +246,20 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 		if (s.deviceId != triggeredDeviceId) {
 			if (onOrOff) {
 				log "BINDING: ${s.displayName} -> on()"
-				if (s.currentValue('switch', true) != 'on') s.on()
+                if (s.currentValue('switch', true) != 'on') {
+                    s.on()
+                }
 			}
 			else {
-				log "BINDING: ${s.displayName} ->off()"
-				if (s.currentValue('switch', true) != 'off') s.off()
+				log "BINDING: ${s.displayName} -> off()"
+                if (s.currentValue('switch', true) != 'off') {
+                    s.off()
+                }
 			}
 		}
 	}
 }
+
 
 def syncLevelState(triggeredDeviceId) {
 	long now = (new Date()).getTime()
@@ -241,8 +274,12 @@ def syncLevelState(triggeredDeviceId) {
 	
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null
-	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"
-	if (newLevel == null) return
+	
+    if (newLevel == null) {
+        return
+    }
+
+  	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"
 
 	atomicState.controllingDeviceId = triggeredDeviceId
 	atomicState.startInteractingMillis = (new Date()).getTime()
@@ -252,15 +289,18 @@ def syncLevelState(triggeredDeviceId) {
 		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setLevel')) {
 			if (s.currentValue('level', true) != newLevel) {
 				log "BINDING: ${s.displayName} -> setLevel($newLevel)"
-				s.setLevel(newLevel)
+				s.setLevel(newLevel, 1)
 			} else {
 				log "BINDING: ${s.displayName} is already at level $newLevel"
 			}
 		} else {
-			if (s.deviceId != triggeredDeviceId) log "BINDING: ${s.displayName} does not support setLevel()"	
+            if (s.deviceId != triggeredDeviceId) {
+                log "BINDING: ${s.displayName} does not support setLevel()"	
+            }
 		}
 	}
 }
+
 
 def syncSpeedState(triggeredDeviceId) {
 	long now = (new Date()).getTime()
@@ -275,8 +315,12 @@ def syncSpeedState(triggeredDeviceId) {
 
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 	def newSpeed = triggeredDevice.hasAttribute('speed') ? triggeredDevice.currentValue("speed") : null
-	log "BINDING: ${triggeredDevice.displayName} SPEED ${newSpeed} detected"
-	if (newSpeed == null) return
+
+    if (newSpeed == null) {
+        return
+    }
+
+   	log "BINDING: ${triggeredDevice.displayName} SPEED ${newSpeed} detected"
 
 	atomicState.controllingDeviceId = triggeredDeviceId
 	atomicState.startInteractingMillis = (new Date()).getTime()
@@ -291,10 +335,13 @@ def syncSpeedState(triggeredDeviceId) {
 				log "BINDING: ${s.displayName} is already at speed $newSpeed"	
 			}
 		} else {
-			if (s.deviceId != triggeredDeviceId) log "BINDING: ${s.displayName} does not support setSpeed()"	
+            if (s.deviceId != triggeredDeviceId) {
+                log "BINDING: ${s.displayName} does not support setSpeed()"	
+            }
 		}
 	}
 }
+
 
 def getFormat(type, myText=""){
 	if(type == "header-green") return "<div style='color:#ffffff;font-weight: bold;background-color:#81BC00;border: 1px solid;box-shadow: 2px 3px #A9A9A9'>${myText}</div>"
@@ -302,11 +349,13 @@ def getFormat(type, myText=""){
 	if(type == "title") return "<h2 style='color:#1A77C9;font-weight: bold'>${myText}</h2>"
 }
 
+
 def log(msg) {
 	if (enableLogging) {
 		log.debug msg
 	}
 }
+
 
 
 
