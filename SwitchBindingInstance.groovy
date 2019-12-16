@@ -109,7 +109,7 @@ def updated() {
 
 
 def initialize() {
-	def masterSwitch 
+	def masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
     
 	if ((settings.masterSwitchId == null) || !settings.masterOnly) {
 		subscribe(switches, 	"switch.on", 		switchOnHandler)
@@ -118,8 +118,6 @@ def initialize() {
 		subscribe(switches, 	"switch.setLevel", 	levelHandler)
 		subscribe(switches, 	"speed", 			speedHandler)
 	} else if (settings.masterSwitchId && settings.masterOnly) {
-		masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
-		
 		subscribe(masterSwitch, "switch.on", 		switchOnHandler)
 		subscribe(masterSwitch, "switch.off", 		switchOffHandler)
 		subscribe(masterSwitch, "level", 			levelHandler)
@@ -173,7 +171,7 @@ def initialize() {
 	atomicState.controllingDeviceId = 0
 	
 	// If a master switch is set, then periodically resync
-	if ((masterSwitch != null) && settings.pollMaster) {
+    if (settings.masterSwitchId && settings.pollMaster) {
 		runEvery5Minutes(reSyncFromMaster)	
 	}
 }
@@ -181,10 +179,12 @@ def initialize() {
 
 def reSyncFromMaster() {
 	// Is masterSwitch set?
-	if (masterSwitchId == null) {
+	if (settings.masterSwitchId == null) {
 		log "BINDING: Master Switch not set"
 		return
 	}
+    
+    def masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
 	
 	if ((now() - atomicState.startInteractingMillis as long) < 1000 * 60) {
 		// I don't want resync happening while someone is standing at a switch fiddling with it.
