@@ -1,5 +1,5 @@
 /**
- *  Switch Bindings
+ *  Switch Bindings v1.0
  *
  *  Copyright 2019 Joel Wetzel
  *
@@ -94,5 +94,4 @@ def mainPage() {
 		}
 	}
 }
-
 
