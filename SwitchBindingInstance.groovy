@@ -1,5 +1,5 @@
 /**
- *  Switch Binding Instance
+ *  Switch Binding Instance v1.0
  *
  *  Copyright 2019 Joel Wetzel
  *
@@ -289,7 +289,7 @@ def syncLevelState(triggeredDeviceId) {
 		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setLevel')) {
 			if (s.currentValue('level', true) != newLevel) {
 				log "BINDING: ${s.displayName} -> setLevel($newLevel)"
-				s.setLevel(newLevel, 1)
+				s.setLevel(newLevel)
 			} else {
 				log "BINDING: ${s.displayName} is already at level $newLevel"
 			}
@@ -355,22 +355,3 @@ def log(msg) {
 		log.debug msg
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
