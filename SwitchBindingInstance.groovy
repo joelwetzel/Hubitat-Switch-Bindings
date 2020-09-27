@@ -1,5 +1,5 @@
 /**
- *  Switch Binding Instance v1.0
+ *  Switch Binding Instance v1.1
  *
  *  Copyright 2019 Joel Wetzel
  *
@@ -109,20 +109,27 @@ def updated() {
 
 
 def initialize() {
+    log "initialize()"
+    
 	def masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
     
 	if ((settings.masterSwitchId == null) || !settings.masterOnly) {
+        log "Subscribing to all switch events"
 		subscribe(switches, 	"switch.on", 		switchOnHandler)
 		subscribe(switches, 	"switch.off", 		switchOffHandler)
 		subscribe(switches, 	"level", 			levelHandler)
 		subscribe(switches, 	"switch.setLevel", 	levelHandler)
 		subscribe(switches, 	"speed", 			speedHandler)
+        subscribe(switches,     "hue",              hueHandler)
 	} else if (settings.masterSwitchId && settings.masterOnly) {
+        // If "Master Only" is set, only subscribe to events on the  master switch.
+        log "Subscribing only to master switch events"
 		subscribe(masterSwitch, "switch.on", 		switchOnHandler)
 		subscribe(masterSwitch, "switch.off", 		switchOffHandler)
 		subscribe(masterSwitch, "level", 			levelHandler)
 		subscribe(masterSwitch, "switch.setLevel", 	levelHandler)
 		subscribe(masterSwitch, "speed", 			speedHandler)
+        subscribe(masterSwitch, "hue",              hueHandler)
 	}
 	
 	// Generate a label for this child app
@@ -171,6 +178,8 @@ def initialize() {
 	atomicState.controllingDeviceId = 0
 	
 	// If a master switch is set, then periodically resync
+    log "settings.masterSwitchId: ${settings.masterSwitchId}"
+    log "settings.pollMaster: ${settings.pollMaster}"
     if (settings.masterSwitchId && settings.pollMaster) {
 		runEvery5Minutes(reSyncFromMaster)	
 	}
@@ -178,6 +187,8 @@ def initialize() {
 
 
 def reSyncFromMaster() {
+	log "BINDING: reSyncFromMaster()"
+    
 	// Is masterSwitch set?
 	if (settings.masterSwitchId == null) {
 		log "BINDING: Master Switch not set"
@@ -185,6 +196,8 @@ def reSyncFromMaster() {
 	}
     
     def masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
+    log "masterSwitchId: ${settings.masterSwitchId.toString()}"
+    log "masterSwitch: ${masterSwitch}"
 	
 	if ((now() - atomicState.startInteractingMillis as long) < 1000 * 60) {
 		// I don't want resync happening while someone is standing at a switch fiddling with it.
@@ -193,8 +206,8 @@ def reSyncFromMaster() {
 		return
 	}
 	
-	log "BINDING: reSyncFromMaster()"
 	def onOrOff = (masterSwitch.currentValue("switch") == "on")
+    log "onOrOff: ${onOrOff}"
 	syncSwitchState(masterSwitchId, onOrOff)
 }
 
@@ -227,14 +240,21 @@ def speedHandler(evt) {
 }
 
 
+def hueHandler(evt) {
+	syncHueState(evt.deviceId)
+}
+
+
 def syncSwitchState(triggeredDeviceId, onOrOff) {
+    log "syncSwitchState(${triggeredDeviceId}, ${onOrOff})"
+    
 	long now = (new Date()).getTime()
 	
 	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
 	// response time, don't sync this event to the other devices.
 	if (triggeredDeviceId != atomicState.controllingDeviceId &&
 		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+		log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
 		return
 	}
 
@@ -302,6 +322,47 @@ def syncLevelState(triggeredDeviceId) {
 }
 
 
+def syncHueState(triggeredDeviceId) {
+	long now = (new Date()).getTime()
+	
+	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
+	// response time, don't sync this event to the other devices.
+	if (triggeredDeviceId != atomicState.controllingDeviceId &&
+		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+		return
+	}
+	
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	def newHue = triggeredDevice.hasAttribute('hue') ? triggeredDevice.currentValue("hue", true) : null
+	
+    if (newHue == null) {
+        return
+    }
+
+  	log "BINDING: ${triggeredDevice.displayName} HUE ${newHue} detected"
+
+	atomicState.controllingDeviceId = triggeredDeviceId
+	atomicState.startInteractingMillis = (new Date()).getTime()
+	
+	// Push the event out to every switch except the one that triggered this.
+	switches.each { s -> 
+		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setHue')) {
+			if (s.currentValue('hue', true) != newHue) {
+				log "BINDING: ${s.displayName} -> setHue($newHue)"
+				s.setHue(newHue)
+			} else {
+				log "BINDING: ${s.displayName} is already at hue $newHue"
+			}
+		} else {
+            if (s.deviceId != triggeredDeviceId) {
+                log "BINDING: ${s.displayName} does not support setHue()"	
+            }
+		}
+	}
+}
+
+
 def syncSpeedState(triggeredDeviceId) {
 	long now = (new Date()).getTime()
 	
@@ -355,3 +416,4 @@ def log(msg) {
 		log.debug msg
 	}
 }
+
