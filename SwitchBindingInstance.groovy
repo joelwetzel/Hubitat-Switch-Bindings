@@ -115,21 +115,25 @@ def initialize() {
     
 	if ((settings.masterSwitchId == null) || !settings.masterOnly) {
         log "Subscribing to all switch events"
-		subscribe(switches, 	"switch.on", 		switchOnHandler)
-		subscribe(switches, 	"switch.off", 		switchOffHandler)
-		subscribe(switches, 	"level", 			levelHandler)
-		subscribe(switches, 	"switch.setLevel", 	levelHandler)
-		subscribe(switches, 	"speed", 			speedHandler)
-        subscribe(switches,     "hue",              hueHandler)
+		subscribe(switches, 	"switch.on", 					switchOnHandler)
+		subscribe(switches, 	"switch.off", 					switchOffHandler)
+		subscribe(switches, 	"level", 						levelHandler)
+		subscribe(switches, 	"switch.setLevel", 				levelHandler)
+		subscribe(switches, 	"speed", 						speedHandler)
+        subscribe(switches,     "hue",              			hueHandler)
+		subscribe(switches, 	"colorTemperature", 			colorTempHandler)
+		subscribe(switches, 	"switch.setColorTemperature", 	colorTempHandler)
 	} else if (settings.masterSwitchId && settings.masterOnly) {
         // If "Master Only" is set, only subscribe to events on the  master switch.
         log "Subscribing only to master switch events"
-		subscribe(masterSwitch, "switch.on", 		switchOnHandler)
-		subscribe(masterSwitch, "switch.off", 		switchOffHandler)
-		subscribe(masterSwitch, "level", 			levelHandler)
-		subscribe(masterSwitch, "switch.setLevel", 	levelHandler)
-		subscribe(masterSwitch, "speed", 			speedHandler)
-        subscribe(masterSwitch, "hue",              hueHandler)
+		subscribe(masterSwitch, "switch.on", 					switchOnHandler)
+		subscribe(masterSwitch, "switch.off", 					switchOffHandler)
+		subscribe(masterSwitch, "level", 						levelHandler)
+		subscribe(masterSwitch, "switch.setLevel", 				levelHandler)
+		subscribe(masterSwitch, "speed", 						speedHandler)
+        subscribe(masterSwitch, "hue",              			hueHandler)
+		subscribe(masterSwitch, "colorTemperature", 			colorTempHandler)
+		subscribe(masterSwitch, "switch.setColorTemperature", 	colorTempHandler)
 	}
 	
 	// Generate a label for this child app
@@ -234,7 +238,6 @@ def levelHandler(evt) {
 	syncLevelState(evt.deviceId)
 }
 
-
 def speedHandler(evt) {
 	syncSpeedState(evt.deviceId)
 }
@@ -242,6 +245,14 @@ def speedHandler(evt) {
 
 def hueHandler(evt) {
 	syncHueState(evt.deviceId)
+}
+
+
+def colorTempHandler(evt) {
+	// Only reflect level events while the switch is on (workaround Zigbee driver problem that sends level immediately after turning off)
+	if (evt.device.currentValue('switch', true) == 'off') return
+
+	syncColorTemperatureState(evt.deviceId)
 }
 
 
@@ -316,6 +327,46 @@ def syncLevelState(triggeredDeviceId) {
 		} else {
             if (s.deviceId != triggeredDeviceId) {
                 log "BINDING: ${s.displayName} does not support setLevel()"	
+            }
+		}
+	}
+}
+
+def syncColorTemperatureState(triggeredDeviceId) {
+	long now = (new Date()).getTime()
+	
+	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
+	// response time, don't sync this event to the other devices.
+	if (triggeredDeviceId != atomicState.controllingDeviceId &&
+		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+		return
+	}
+	
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	def newCt = triggeredDevice.hasAttribute('colorTemperature') ? triggeredDevice.currentValue("colorTemperature", true) : null
+	
+    if (newCt == null) {
+        return
+    }
+
+  	log "BINDING: ${triggeredDevice.displayName} COLORTEMP ${newCt} detected"
+
+	atomicState.controllingDeviceId = triggeredDeviceId
+	atomicState.startInteractingMillis = (new Date()).getTime()
+	
+	// Push the event out to every switch except the one that triggered this.
+	switches.each { s -> 
+		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setColorTemperature')) {
+			if (s.currentValue('colorTemperature', true) != newCt) {
+				log "BINDING: ${s.displayName} -> setColorTemperature($newCt)"
+				s.setColorTemperature(newCt)
+			} else {
+				log "BINDING: ${s.displayName} is already at colortemp $newCt"
+			}
+		} else {
+            if (s.deviceId != triggeredDeviceId) {
+                log "BINDING: ${s.displayName} does not support setColorTemperature()"	
             }
 		}
 	}
