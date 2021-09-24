@@ -268,6 +268,7 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 				log "BINDING: ${s.displayName} -> on()"
                 if (s.currentValue('switch', true) != 'on') {
                     if (s.getSetting("transitionTime") != null && s.hasAttribute('level')) {
+			    // Honor device transition time settings if specified
                         def transitionTime = s.getSetting("transitionTime")
                         def currentLevel = s.currentValue("level", true)
                         s.setLevel(currentLevel, transitionTime)
