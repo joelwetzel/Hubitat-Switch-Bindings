@@ -1,5 +1,5 @@
 /**
- *  Switch Binding Instance v1.1
+ *  Switch Binding Instance v1.2
  *
  *  Copyright 2019 Joel Wetzel
  *
@@ -131,7 +131,7 @@ def initialize() {
 		subscribe(masterSwitch, "speed", 			speedHandler)
         subscribe(masterSwitch, "hue",              hueHandler)
 	}
-	
+
 	// Generate a label for this child app
 	String newLabel
 	if (settings.nameOverride && settings.nameOverride.size() > 0) {
@@ -267,7 +267,14 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 			if (onOrOff) {
 				log "BINDING: ${s.displayName} -> on()"
                 if (s.currentValue('switch', true) != 'on') {
-                    s.on()
+                    if (s.getSetting("transitionTime") != null && s.hasAttribute('level')) {
+                        def transitionTime = s.getSetting("transitionTime")
+                        def currentLevel = s.currentValue("level", true)
+                        s.setLevel(currentLevel, transitionTime)
+                    }
+                    else {
+                        s.on()
+                    }
                 }
 			}
 			else {
