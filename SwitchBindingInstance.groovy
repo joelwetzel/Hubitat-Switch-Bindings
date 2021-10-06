@@ -237,7 +237,9 @@ def switchOnHandler(evt) {
 	log "BINDING: ${evt.displayName} ON detected"	
 	
 	syncSwitchState(evt.deviceId, true)
-	syncLevelState(evt.deviceId)		// Double check that the level is correct
+    if ((settings.syncLevel == null) || settings.syncLevel) {
+	    syncLevelState(evt.deviceId)		// Double check that the level is correct
+    }
 }
 
 
