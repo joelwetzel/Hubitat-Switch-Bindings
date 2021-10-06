@@ -84,7 +84,12 @@ def mainPage() {
 					  "The app uses this estimated duration to make sure that the bound switches don't infinitely trigger each other. Only reduce this value if you are using very fast switches, " +
 					  "and you regularly physically toggle 2 (or more) of them right after each other (not a common case)."
 			input(name:	"responseTime",	type: "long", title: "Estimated Switch Response Time (in milliseconds)", defaultValue: 5000, required: true)
-		}
+            paragraph "<br/>Select attributes/events to sync between switches:"
+            input(name: "syncOnOff", type: "bool", title: "On/Off", defaultValue: true, required: true)
+            input(name: "syncLevel", type: "bool", title: "Level", defaultValue: true, required: true)
+            input(name: "syncSpeed", type: "bool", title: "Speed", defaultValue: true, required: true)
+            input(name: "syncHue", type: "bool", title: "Hue", defaultValue: true, required: true)
+        }
 		section () {
 			input(name:	"enableLogging", type: "bool", title: "Enable Debug Logging?", defaultValue: false,	required: true)
 		}
@@ -115,21 +120,37 @@ def initialize() {
     
 	if ((settings.masterSwitchId == null) || !settings.masterOnly) {
         log "Subscribing to all switch events"
-		subscribe(switches, 	"switch.on", 		switchOnHandler)
-		subscribe(switches, 	"switch.off", 		switchOffHandler)
-		subscribe(switches, 	"level", 			levelHandler)
-		subscribe(switches, 	"switch.setLevel", 	levelHandler)
-		subscribe(switches, 	"speed", 			speedHandler)
-        subscribe(switches,     "hue",              hueHandler)
+        if ((settings.syncOnOff == null) || settings.syncOnOff) {
+		    subscribe(switches, 	"switch.on", 		switchOnHandler)
+		    subscribe(switches, 	"switch.off", 		switchOffHandler)
+        }
+		if ((settings.syncLevel == null) || settings.syncLevel) {
+            subscribe(switches, 	"level", 			levelHandler)
+		    subscribe(switches, 	"switch.setLevel", 	levelHandler)
+        }
+        if ((settings.syncSpeed == null) || settings.syncSpeed) {
+		    subscribe(switches, 	"speed", 			speedHandler)
+        }
+        if ((settings.syncHue == null) || settings.syncHue) {
+            subscribe(switches,     "hue",              hueHandler)
+        }
 	} else if (settings.masterSwitchId && settings.masterOnly) {
         // If "Master Only" is set, only subscribe to events on the  master switch.
         log "Subscribing only to master switch events"
-		subscribe(masterSwitch, "switch.on", 		switchOnHandler)
-		subscribe(masterSwitch, "switch.off", 		switchOffHandler)
-		subscribe(masterSwitch, "level", 			levelHandler)
-		subscribe(masterSwitch, "switch.setLevel", 	levelHandler)
-		subscribe(masterSwitch, "speed", 			speedHandler)
-        subscribe(masterSwitch, "hue",              hueHandler)
+        if ((settings.syncOnOff == null) || settings.syncOnOff) {
+		    subscribe(masterSwitch, "switch.on", 		switchOnHandler)
+		    subscribe(masterSwitch, "switch.off", 		switchOffHandler)
+        }
+        if ((settings.syncLevel == null) || settings.syncLevel) {
+		    subscribe(masterSwitch, "level", 			levelHandler)
+		    subscribe(masterSwitch, "switch.setLevel", 	levelHandler)
+        }
+        if ((settings.syncSpeed == null) || settings.syncSpeed) {
+            subscribe(masterSwitch, "speed", 			speedHandler)
+        }
+        if ((settings.syncHue == null) || settings.syncHue) {
+            subscribe(masterSwitch, "hue",              hueHandler)
+        }
 	}
 	
 	// Generate a label for this child app
