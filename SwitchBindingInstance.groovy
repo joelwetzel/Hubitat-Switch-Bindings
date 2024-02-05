@@ -199,7 +199,7 @@ def reSyncFromMaster() {
 
 
 def switchOnHandler(evt) {
-	log "BINDING: ${evt.displayName} ON detected"
+	log "BINDING: ${evt.device.displayName} ON detected"
 
 	syncSwitchState(evt.deviceId, true)
 	syncLevelState(evt.deviceId)		// Double check that the level is correct
@@ -207,7 +207,7 @@ def switchOnHandler(evt) {
 
 
 def switchOffHandler(evt) {
-	log "BINDING: ${evt.displayName} OFF detected"
+	log "BINDING: ${evt.device.displayName} OFF detected"
 
 	syncSwitchState(evt.deviceId, false)
 }
@@ -230,6 +230,20 @@ def hueHandler(evt) {
 	syncHueState(evt.deviceId)
 }
 
+// boolean checkForFeedbackLoop(triggeredDeviceId) {
+//     long now = (new Date()).getTime()
+
+//     // Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
+//     // response time, don't sync this event to the other devices.
+//     if (triggeredDeviceId != atomicState.controllingDeviceId &&
+//         (now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+//         log "Preventing feedback loop"
+//         //log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+//         return true
+//     }
+//     return false
+// }
+
 
 def syncSwitchState(triggeredDeviceId, onOrOff) {
     log "syncSwitchState(${triggeredDeviceId}, ${onOrOff})"
@@ -240,7 +254,8 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 	// response time, don't sync this event to the other devices.
 	if (triggeredDeviceId != atomicState.controllingDeviceId &&
 		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-		log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+		log "Preventing switch feedback loop"
+		//log "Preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
 		return
 	}
 
@@ -274,13 +289,19 @@ def syncLevelState(triggeredDeviceId) {
 	// response time, don't sync this event to the other devices.
 	if (triggeredDeviceId != atomicState.controllingDeviceId &&
 		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+        log "Preventing level feedback loop"
 		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
 		return
 	}
 
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
-	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null
 
+    def hasLevel = triggeredDevice.hasAttribute('level')
+    if (!hasLevel) {
+        return
+    }
+
+	def newLevel = triggeredDevice.currentValue("level", true)
     if (newLevel == null) {
         return
     }
@@ -292,18 +313,17 @@ def syncLevelState(triggeredDeviceId) {
 
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
-		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setLevel')) {
-			if (s.currentValue('level', true) != newLevel) {
-				log "BINDING: ${s.displayName} -> setLevel($newLevel)"
-				s.setLevel(newLevel)
-			} else {
-				log "BINDING: ${s.displayName} is already at level $newLevel"
-			}
-		} else {
-            if (s.deviceId != triggeredDeviceId) {
-                log "BINDING: ${s.displayName} does not support setLevel()"
+		if (s.deviceId != triggeredDeviceId) {
+            if (s.hasCommand('setLevel')) {
+                if (s.currentValue('level', true) != newLevel) {
+                    log "BINDING: ${s.displayName} -> setLevel($newLevel)"
+                    s.setLevel(newLevel)
+                }
+            } else if (s.hasCommand('on') && s.currentValue('switch') == 'off' && newLevel > 0) {
+                log "BINDING: ${s.displayName} -> on()"
+                s.on()
             }
-		}
+        }
 	}
 }
 
@@ -315,13 +335,19 @@ def syncHueState(triggeredDeviceId) {
 	// response time, don't sync this event to the other devices.
 	if (triggeredDeviceId != atomicState.controllingDeviceId &&
 		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+        log "Preventing hue feedback loop"
 		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
 		return
 	}
 
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
-	def newHue = triggeredDevice.hasAttribute('hue') ? triggeredDevice.currentValue("hue", true) : null
 
+    def hasHue = triggeredDevice.hasAttribute('hue')
+    if (!hasHue) {
+        return
+    }
+
+	def newHue = triggeredDevice.currentValue("hue", true)
     if (newHue == null) {
         return
     }
@@ -333,18 +359,17 @@ def syncHueState(triggeredDeviceId) {
 
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
-		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setHue')) {
-			if (s.currentValue('hue', true) != newHue) {
-				log "BINDING: ${s.displayName} -> setHue($newHue)"
-				s.setHue(newHue)
-			} else {
-				log "BINDING: ${s.displayName} is already at hue $newHue"
-			}
-		} else {
-            if (s.deviceId != triggeredDeviceId) {
-                log "BINDING: ${s.displayName} does not support setHue()"
+		if (s.deviceId != triggeredDeviceId) {
+            if (s.hasCommand('setHue')) {
+			    if (s.currentValue('hue', true) != newHue) {
+				    log "BINDING: ${s.displayName} -> setHue($newHue)"
+				    s.setHue(newHue)
+			    }
+            } else if (s.hasCommand('on') && s.currentValue('switch') == 'off') {
+                log "BINDING: ${s.displayName} -> on()"
+                s.on()
             }
-		}
+        }
 	}
 }
 
