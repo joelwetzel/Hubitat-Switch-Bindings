@@ -169,7 +169,7 @@ class LevelTests extends Specification {
         dimmerFixture2.setLevel(20)
 
         then:
-        1 * log.debug("Preventing feedback loop")
+        1 * log.debug("checkForFeedbackLoop: Preventing feedback loop")
         appAtomicState.controllingDeviceId == dimmerFixture1.deviceId
         switchFixture1.state.switch == "on"
         dimmerFixture1.state.switch == "on"
@@ -207,7 +207,7 @@ class LevelTests extends Specification {
         dimmerFixture2.off()
 
         then:
-        1 * log.debug("Preventing feedback loop")
+        1 * log.debug("checkForFeedbackLoop: Preventing feedback loop")
         appAtomicState.controllingDeviceId == dimmerFixture1.deviceId
         switchFixture1.state.switch == "on"
         dimmerFixture1.state.switch == "on"

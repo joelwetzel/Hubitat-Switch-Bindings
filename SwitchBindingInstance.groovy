@@ -138,7 +138,7 @@ def initialize() {
 			switchList = switches
 		}
 
-		log "switches: ${switches}, switchList: ${switchList}"
+		//log "switches: ${switches}, switchList: ${switchList}"
 
 		def ss = switchList.size()
 		for (def i = 0; i < ss; i++) {
@@ -173,33 +173,33 @@ def initialize() {
 
 
 def reSyncFromMaster() {
-	log "BINDING: reSyncFromMaster()"
+	log "reSyncFromMaster()"
 
 	// Is masterSwitch set?
 	if (settings.masterSwitchId == null) {
-		log "BINDING: Master Switch not set"
+		log "reSyncFromMaster: Master Switch not set"
 		return
 	}
 
     def masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
-    log "masterSwitchId: ${settings.masterSwitchId.toString()}"
-    log "masterSwitch: ${masterSwitch}"
+    //log "masterSwitchId: ${settings.masterSwitchId.toString()}"
+    //log "masterSwitch: ${masterSwitch}"
 
 	if ((now() - atomicState.startInteractingMillis as long) < 1000 * 60) {
 		// I don't want resync happening while someone is standing at a switch fiddling with it.
 		// Wait until the system has been stable for a bit.
-		log "BINDING: Skipping reSync because there has been a recent user interaction."
+		log "reSyncFromMaster: Skipping reSync because there has been a recent user interaction."
 		return
 	}
 
 	def onOrOff = (masterSwitch.currentValue("switch") == "on")
-    log "onOrOff: ${onOrOff}"
+
 	syncSwitchState(masterSwitchId, onOrOff)
 }
 
 
 def switchOnHandler(evt) {
-	log "BINDING: ${evt.device.displayName} ON detected"
+	log "BINDING: ${evt.device.displayName} SWITCH On detected"
 
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
@@ -211,7 +211,7 @@ def switchOnHandler(evt) {
 
 
 def switchOffHandler(evt) {
-	log "BINDING: ${evt.device.displayName} OFF detected"
+	log "BINDING: ${evt.device.displayName} SWITCH Off detected"
 
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
@@ -222,8 +222,10 @@ def switchOffHandler(evt) {
 
 
 def levelHandler(evt) {
-	// Only reflect level events while the switch is on (workaround Zigbee driver problem that sends level immediately after turning off)
+	// Only reflect level events while the switch is on (workaround for Zigbee driver problem that sends level immediately after turning off)
 	if (evt.device.currentValue('switch', true) == 'off') return
+
+    log "BINDING: ${evt.device.displayName} LEVEL ${evt.value} detected"
 
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
@@ -234,6 +236,8 @@ def levelHandler(evt) {
 
 
 def speedHandler(evt) {
+    log "BINDING: ${evt.device.displayName} SPEED ${evt.value} detected"
+
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
     }
@@ -243,6 +247,8 @@ def speedHandler(evt) {
 
 
 def hueHandler(evt) {
+    log "BINDING: ${evt.device.displayName} HUE ${evt.value} detected"
+
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
     }
@@ -257,8 +263,8 @@ boolean checkForFeedbackLoop(triggeredDeviceId) {
     // response time, don't sync this event to the other devices.
     if (triggeredDeviceId != atomicState.controllingDeviceId &&
         (now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-        log "Preventing feedback loop"
-        //log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+        log "checkForFeedbackLoop: Preventing feedback loop"
+        //log "preventing feedback loop variables: ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
         return true
     }
 
@@ -272,20 +278,20 @@ boolean checkForFeedbackLoop(triggeredDeviceId) {
 def syncSwitchState(triggeredDeviceId, onOrOff) {
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
-		if (s.deviceId != triggeredDeviceId) {
-			if (onOrOff) {
-				log "BINDING: ${s.displayName} -> on()"
-                if (s.currentValue('switch', true) != 'on') {
-                    s.on()
-                }
-			}
-			else {
-				log "BINDING: ${s.displayName} -> off()"
-                if (s.currentValue('switch', true) != 'off') {
-                    s.off()
-                }
-			}
-		}
+		if (s.deviceId == triggeredDeviceId) {
+            return
+        }
+
+        if (onOrOff) {
+            if (s.currentValue('switch', true) != 'on') {
+                s.on()
+            }
+        }
+        else {
+            if (s.currentValue('switch', true) != 'off') {
+                s.off()
+            }
+        }
 	}
 }
 
@@ -293,30 +299,23 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 def syncLevelState(triggeredDeviceId) {
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
-    def hasLevel = triggeredDevice.hasAttribute('level')
-    if (!hasLevel) {
-        return
-    }
-
-	def newLevel = triggeredDevice.currentValue("level", true)
+	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null
     if (newLevel == null) {
         return
     }
 
-  	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"
-
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
-		if (s.deviceId != triggeredDeviceId) {
-            if (s.hasCommand('setLevel')) {
-                if (s.currentValue('level', true) != newLevel) {
-                    log "BINDING: ${s.displayName} -> setLevel($newLevel)"
-                    s.setLevel(newLevel)
-                }
-            } else if (s.hasCommand('on') && s.currentValue('switch') == 'off' && newLevel > 0) {
-                log "BINDING: ${s.displayName} -> on()"
-                s.on()
+		if (s.deviceId == triggeredDeviceId) {
+            return
+        }
+
+        if (s.hasCommand('setLevel')) {
+            if (s.currentValue('level', true) != newLevel) {
+                s.setLevel(newLevel)
             }
+        } else if (s.currentValue('switch') == 'off' && newLevel > 0) {
+            s.on()
         }
 	}
 }
@@ -325,30 +324,19 @@ def syncLevelState(triggeredDeviceId) {
 def syncHueState(triggeredDeviceId) {
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
-    def hasHue = triggeredDevice.hasAttribute('hue')
-    if (!hasHue) {
-        return
-    }
-
-	def newHue = triggeredDevice.currentValue("hue", true)
+	def newHue = triggeredDevice.hasAttribute('hue') ? triggeredDevice.currentValue("hue", true) : null
     if (newHue == null) {
         return
     }
 
-  	log "BINDING: ${triggeredDevice.displayName} HUE ${newHue} detected"
-
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
-		if (s.deviceId != triggeredDeviceId) {
-            if (s.hasCommand('setHue')) {
-			    if (s.currentValue('hue', true) != newHue) {
-				    log "BINDING: ${s.displayName} -> setHue($newHue)"
-				    s.setHue(newHue)
-			    }
-            } else if (s.hasCommand('on') && s.currentValue('switch') == 'off') {
-                log "BINDING: ${s.displayName} -> on()"
-                s.on()
-            }
+		if (s.deviceId == triggeredDeviceId) {
+            return
+        }
+
+        if (s.hasCommand('setHue') && s.currentValue('hue', true) != newHue) {
+            s.setHue(newHue)
         }
 	}
 }
@@ -356,27 +344,22 @@ def syncHueState(triggeredDeviceId) {
 
 def syncSpeedState(triggeredDeviceId) {
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
-	def newSpeed = triggeredDevice.hasAttribute('speed') ? triggeredDevice.currentValue("speed") : null
 
+	def newSpeed = triggeredDevice.hasAttribute('speed') ? triggeredDevice.currentValue("speed") : null
     if (newSpeed == null) {
         return
     }
 
-   	log "BINDING: ${triggeredDevice.displayName} SPEED ${newSpeed} detected"
-
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
-		if ((s.deviceId != triggeredDeviceId) && s.hasCommand('setSpeed')){
-			if (s.currentValue('speed', true) != newSpeed) {
-				log "BINDING: ${s.displayName} -> setSpeed($newSpeed)"
+		if (s.deviceId == triggeredDeviceId) {
+            return
+        }
+
+        if (s.hasCommand('setSpeed')) {
+            if (s.currentValue('speed', true) != newSpeed) {
 				s.setSpeed(newSpeed)
-			} else {
-				log "BINDING: ${s.displayName} is already at speed $newSpeed"
 			}
-		} else {
-            if (s.deviceId != triggeredDeviceId) {
-                log "BINDING: ${s.displayName} does not support setSpeed()"
-            }
 		}
 	}
 }
