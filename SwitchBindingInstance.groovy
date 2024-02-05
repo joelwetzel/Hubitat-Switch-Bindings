@@ -201,6 +201,10 @@ def reSyncFromMaster() {
 def switchOnHandler(evt) {
 	log "BINDING: ${evt.device.displayName} ON detected"
 
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
+
 	syncSwitchState(evt.deviceId, true)
 	syncLevelState(evt.deviceId)		// Double check that the level is correct
 }
@@ -208,6 +212,10 @@ def switchOnHandler(evt) {
 
 def switchOffHandler(evt) {
 	log "BINDING: ${evt.device.displayName} OFF detected"
+
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
 
 	syncSwitchState(evt.deviceId, false)
 }
@@ -217,51 +225,51 @@ def levelHandler(evt) {
 	// Only reflect level events while the switch is on (workaround Zigbee driver problem that sends level immediately after turning off)
 	if (evt.device.currentValue('switch', true) == 'off') return
 
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
+
 	syncLevelState(evt.deviceId)
 }
 
 
 def speedHandler(evt) {
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
+
 	syncSpeedState(evt.deviceId)
 }
 
 
 def hueHandler(evt) {
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
+
 	syncHueState(evt.deviceId)
 }
 
-// boolean checkForFeedbackLoop(triggeredDeviceId) {
-//     long now = (new Date()).getTime()
+boolean checkForFeedbackLoop(triggeredDeviceId) {
+    long now = (new Date()).getTime()
 
-//     // Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
-//     // response time, don't sync this event to the other devices.
-//     if (triggeredDeviceId != atomicState.controllingDeviceId &&
-//         (now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-//         log "Preventing feedback loop"
-//         //log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
-//         return true
-//     }
-//     return false
-// }
+    // Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
+    // response time, don't sync this event to the other devices.
+    if (triggeredDeviceId != atomicState.controllingDeviceId &&
+        (now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
+        log "Preventing feedback loop"
+        //log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
+        return true
+    }
+
+    atomicState.controllingDeviceId = triggeredDeviceId
+	atomicState.startInteractingMillis = now
+
+    return false
+}
 
 
 def syncSwitchState(triggeredDeviceId, onOrOff) {
-    log "syncSwitchState(${triggeredDeviceId}, ${onOrOff})"
-
-	long now = (new Date()).getTime()
-
-	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
-	// response time, don't sync this event to the other devices.
-	if (triggeredDeviceId != atomicState.controllingDeviceId &&
-		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-		log "Preventing switch feedback loop"
-		//log "Preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
-		return
-	}
-
-	atomicState.controllingDeviceId = triggeredDeviceId
-	atomicState.startInteractingMillis = (new Date()).getTime()
-
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
 		if (s.deviceId != triggeredDeviceId) {
@@ -283,17 +291,6 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 
 
 def syncLevelState(triggeredDeviceId) {
-	long now = (new Date()).getTime()
-
-	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
-	// response time, don't sync this event to the other devices.
-	if (triggeredDeviceId != atomicState.controllingDeviceId &&
-		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-        log "Preventing level feedback loop"
-		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
-		return
-	}
-
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
     def hasLevel = triggeredDevice.hasAttribute('level')
@@ -307,9 +304,6 @@ def syncLevelState(triggeredDeviceId) {
     }
 
   	log "BINDING: ${triggeredDevice.displayName} LEVEL ${newLevel} detected"
-
-	atomicState.controllingDeviceId = triggeredDeviceId
-	atomicState.startInteractingMillis = (new Date()).getTime()
 
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
@@ -329,17 +323,6 @@ def syncLevelState(triggeredDeviceId) {
 
 
 def syncHueState(triggeredDeviceId) {
-	long now = (new Date()).getTime()
-
-	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
-	// response time, don't sync this event to the other devices.
-	if (triggeredDeviceId != atomicState.controllingDeviceId &&
-		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-        log "Preventing hue feedback loop"
-		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
-		return
-	}
-
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
     def hasHue = triggeredDevice.hasAttribute('hue')
@@ -353,9 +336,6 @@ def syncHueState(triggeredDeviceId) {
     }
 
   	log "BINDING: ${triggeredDevice.displayName} HUE ${newHue} detected"
-
-	atomicState.controllingDeviceId = triggeredDeviceId
-	atomicState.startInteractingMillis = (new Date()).getTime()
 
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
@@ -375,16 +355,6 @@ def syncHueState(triggeredDeviceId) {
 
 
 def syncSpeedState(triggeredDeviceId) {
-	long now = (new Date()).getTime()
-
-	// Don't allow feedback and event cycles.  If this isn't the controlling device and we're still within the characteristic
-	// response time, don't sync this event to the other devices.
-	if (triggeredDeviceId != atomicState.controllingDeviceId &&
-		(now - atomicState.startInteractingMillis as long) < (responseTime as long)) {
-		//log "preventing feedback loop ${now - atomicState.startInteractingMillis as long} ${triggeredDeviceId} ${atomicState.controllingDeviceId}"
-		return
-	}
-
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 	def newSpeed = triggeredDevice.hasAttribute('speed') ? triggeredDevice.currentValue("speed") : null
 
@@ -393,9 +363,6 @@ def syncSpeedState(triggeredDeviceId) {
     }
 
    	log "BINDING: ${triggeredDevice.displayName} SPEED ${newSpeed} detected"
-
-	atomicState.controllingDeviceId = triggeredDeviceId
-	atomicState.startInteractingMillis = (new Date()).getTime()
 
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->

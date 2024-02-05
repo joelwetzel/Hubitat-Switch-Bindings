@@ -136,7 +136,7 @@ class SwitchTests extends Specification {
         switchFixture2.off()
 
         then:
-        1 * log.debug("Preventing switch feedback loop")
+        1 * log.debug("Preventing feedback loop")
         appAtomicState.controllingDeviceId == switchFixture1.deviceId
         switchFixture1.state.switch == "on"
         switchFixture2.state.switch == "off"
