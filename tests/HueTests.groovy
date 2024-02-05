@@ -1,3 +1,7 @@
+// Note:  I haven't built a ColorBulbFixtureFactory yet, so I'm not able to test the color bulb functionality properly yet.
+// When I get to it, the fixture will need to implement the ColorControl capability.
+
+
 // package joelwetzel.switch_bindings.tests
 
 // import me.biocomp.hubitat_ci.util.device_fixtures.SwitchFixtureFactory
