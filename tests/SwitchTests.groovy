@@ -144,6 +144,37 @@ class SwitchTests extends Specification {
         dimmerFixture1.state.switch == "on"
     }
 
+    void "The controlling device can send followup commands during the responseTime"() {
+        given:
+        switchFixture1.initialize(appExecutor, [switch: "off"])
+        switchFixture2.initialize(appExecutor, [switch: "off"])
+        switchFixture3.initialize(appExecutor, [switch: "off"])
+        dimmerFixture1.initialize(appExecutor, [switch: "off", level: 50])
+
+        when:
+        switchFixture1.on()
+
+        then:
+        appAtomicState.controllingDeviceId == switchFixture1.deviceId
+        switchFixture1.state.switch == "on"
+        switchFixture2.state.switch == "on"
+        switchFixture3.state.switch == "on"
+        dimmerFixture1.state.switch == "on"
+
+        when:
+        TimeKeeper.advanceSeconds(1)
+
+        and:
+        switchFixture1.off()
+
+        then:
+        appAtomicState.controllingDeviceId == switchFixture1.deviceId
+        switchFixture1.state.switch == "off"
+        switchFixture2.state.switch == "off"
+        switchFixture3.state.switch == "off"
+        dimmerFixture1.state.switch == "off"
+    }
+
     void "After the responseTime, other switches can become the controlling device"() {
         given:
         switchFixture1.initialize(appExecutor, [switch: "off"])

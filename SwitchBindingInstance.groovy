@@ -138,8 +138,6 @@ def initialize() {
 			switchList = switches
 		}
 
-		//log "switches: ${switches}, switchList: ${switchList}"
-
 		def ss = switchList.size()
 		for (def i = 0; i < ss; i++) {
 			if ((i == (ss - 1)) && (ss > 1)) {

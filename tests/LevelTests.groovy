@@ -55,9 +55,6 @@ class LevelTests extends Specification {
         appScript.initialize()
     }
 
-    def cleanup() {
-    }
-
     void "setLevel on one dimmer affects the others"() {
         given:
         switchFixture1.initialize(appExecutor, [switch: "off"])
