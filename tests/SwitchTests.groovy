@@ -55,9 +55,6 @@ class SwitchTests extends Specification {
         appScript.initialize()
     }
 
-    def cleanup() {
-    }
-
     void "Switching one switch on affects the others"() {
         given:
         switchFixture1.initialize(appExecutor, [switch: "off"])

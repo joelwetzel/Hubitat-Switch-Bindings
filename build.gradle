@@ -28,7 +28,7 @@ dependencies {
     testImplementation 'org.codehaus.groovy:groovy-all:2.5.4' // groovy itself
     testImplementation 'org.codehaus.groovy.modules.http-builder:http-builder:0.5.0'
     testImplementation "org.spockframework:spock-core:1.2-groovy-2.5" // spock framework
-    testImplementation "me.biocomp.hubitat_ci:${System.getenv("MAVEN_ARTIFACT_ID") ?: 'hubitat_ci'}:0.10" // hubitat_ci
+    testImplementation "me.biocomp.hubitat_ci:${System.getenv("MAVEN_ARTIFACT_ID") ?: 'hubitat_ci'}:0.11" // hubitat_ci
     testImplementation group: 'cglib', name: 'cglib-nodep', version: '3.3.0'
 }
 

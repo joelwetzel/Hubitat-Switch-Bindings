@@ -165,13 +165,13 @@ def initialize() {
 
 	// If a master switch is set, then periodically resync
     if (settings.masterSwitchId && settings.pollMaster) {
-		runEvery5Minutes('reSyncFromMaster')
+		runEvery5Minutes("reSyncFromMaster")
 	}
 }
 
 
-def reSyncFromMaster() {
-	log "reSyncFromMaster()"
+void reSyncFromMaster(evt) {
+	log.info "reSyncFromMaster()"
 
 	// Is masterSwitch set?
 	if (settings.masterSwitchId == null) {
