@@ -3,16 +3,8 @@ package joelwetzel.switch_bindings.tests
 import me.biocomp.hubitat_ci.util.device_fixtures.SwitchFixtureFactory
 import me.biocomp.hubitat_ci.util.device_fixtures.DimmerFixtureFactory
 import me.biocomp.hubitat_ci.util.device_fixtures.FanFixtureFactory
-import me.biocomp.hubitat_ci.util.IntegrationAppExecutor
-
-import me.biocomp.hubitat_ci.api.app_api.AppExecutor
-import me.biocomp.hubitat_ci.api.common_api.Log
-import me.biocomp.hubitat_ci.app.HubitatAppSandbox
-import me.biocomp.hubitat_ci.api.common_api.DeviceWrapper
-import me.biocomp.hubitat_ci.api.common_api.InstalledAppWrapper
-import me.biocomp.hubitat_ci.capabilities.GeneratedCapability
-import me.biocomp.hubitat_ci.util.NullableOptional
-import me.biocomp.hubitat_ci.util.TimeKeeper
+import me.biocomp.hubitat_ci.util.integration.IntegrationAppSpecification
+import me.biocomp.hubitat_ci.util.integration.TimeKeeper
 import me.biocomp.hubitat_ci.validation.Flags
 
 import spock.lang.Specification
@@ -20,25 +12,7 @@ import spock.lang.Specification
 /**
 * Speed tests for SwitchBindingInstance.groovy
 */
-class SpeedTests extends Specification {
-    private HubitatAppSandbox sandbox = new HubitatAppSandbox(new File('SwitchBindingInstance.groovy'))
-
-    def log = Mock(Log)
-
-    InstalledAppWrapper app = Mock{
-        _ * getName() >> "MyAppName"
-    }
-
-    def appState = [:]
-    def appAtomicState = [:]
-
-    def appExecutor = Spy(IntegrationAppExecutor) {
-        _*getLog() >> log
-        _*getApp() >> app
-        _*getState() >> appState
-        _*getAtomicState() >> appAtomicState
-    }
-
+class SpeedTests extends IntegrationAppSpecification {
     def switchFixture1 = SwitchFixtureFactory.create('s1')
     def dimmerFixture1 = DimmerFixtureFactory.create('d1')
     def fanFixture1 = FanFixtureFactory.create('f1')
@@ -46,10 +20,9 @@ class SpeedTests extends Specification {
 
     void "Two bound fans turn on"() {
         given:
-            def appScript = sandbox.run(api: appExecutor,
-                validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
-                userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, fanFixture2], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
-            appExecutor.setSubscribingScript(appScript)
+            super.initializeEnvironment(appScriptFilename: "SwitchBindingInstance.groovy",
+                                        validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
+                                        userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, fanFixture2], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
             appScript.initialize()
 
         and:
@@ -60,20 +33,19 @@ class SpeedTests extends Specification {
             fanFixture1.on()
 
         then:
-            fanFixture1.state.switch == "on"
-            fanFixture2.state.switch == "on"
-            fanFixture1.state.level == 100
-            fanFixture2.state.level == 100
-            fanFixture1.state.speed == "high"
-            fanFixture2.state.speed == "high"
+            fanFixture1.currentValue('switch') == "on"
+            fanFixture2.currentValue('switch') == "on"
+            fanFixture1.currentValue('level') == 100
+            fanFixture2.currentValue('level') == 100
+            fanFixture1.currentValue('speed') == "high"
+            fanFixture2.currentValue('speed') == "high"
     }
 
     void "Two bound fans change speed"() {
         given:
-            def appScript = sandbox.run(api: appExecutor,
-                validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
-                userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, fanFixture2], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
-            appExecutor.setSubscribingScript(appScript)
+            super.initializeEnvironment(appScriptFilename: "SwitchBindingInstance.groovy",
+                                        validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
+                                        userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, fanFixture2], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
             appScript.initialize()
 
         and:
@@ -84,20 +56,19 @@ class SpeedTests extends Specification {
             fanFixture1.setSpeed("low")
 
         then:
-            fanFixture1.state.switch == "on"
-            fanFixture1.state.speed == "low"
-            fanFixture1.state.level == 16
-            fanFixture2.state.switch == "on"
-            fanFixture2.state.speed == "low"
-            fanFixture2.state.level == 16
+            fanFixture1.currentValue('switch') == "on"
+            fanFixture1.currentValue('speed') == "low"
+            fanFixture1.currentValue('level') == 16
+            fanFixture2.currentValue('switch') == "on"
+            fanFixture2.currentValue('speed') == "low"
+            fanFixture2.currentValue('level') == 16
     }
 
     void "A bound switch can turn a fan on"() {
         given:
-            def appScript = sandbox.run(api: appExecutor,
-                validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
-                userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, switchFixture1], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
-            appExecutor.setSubscribingScript(appScript)
+            super.initializeEnvironment(appScriptFilename: "SwitchBindingInstance.groovy",
+                                        validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
+                                        userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, switchFixture1], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
             appScript.initialize()
 
         and:
@@ -108,17 +79,16 @@ class SpeedTests extends Specification {
             switchFixture1.on()
 
         then:
-            fanFixture1.state.switch == "on"
-            fanFixture1.state.level == 100
-            fanFixture1.state.speed == "high"
+            fanFixture1.currentValue('switch') == "on"
+            fanFixture1.currentValue('level') == 100
+            fanFixture1.currentValue('speed') == "high"
     }
 
     void "A bound fan can turn a switch off"() {
         given:
-            def appScript = sandbox.run(api: appExecutor,
-                validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
-                userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, switchFixture1], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
-            appExecutor.setSubscribingScript(appScript)
+            super.initializeEnvironment(appScriptFilename: "SwitchBindingInstance.groovy",
+                                        validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
+                                        userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, switchFixture1], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
             appScript.initialize()
 
         and:
@@ -129,6 +99,6 @@ class SpeedTests extends Specification {
             fanFixture1.off()
 
         then:
-            switchFixture1.state.switch == "off"
+            switchFixture1.currentValue('switch') == "off"
     }
 }
