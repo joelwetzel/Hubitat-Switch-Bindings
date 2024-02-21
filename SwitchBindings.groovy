@@ -1,7 +1,7 @@
 /**
- *  Switch Bindings v1.0
+ *  Switch Bindings v2.0
  *
- *  Copyright 2019 Joel Wetzel
+ *  Copyright 2024 Joel Wetzel
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -52,9 +52,9 @@ def initialize() {
 }
 
 
-def installCheck() {         
+def installCheck() {
 	state.appInstalled = app.getInstallationState()
-	
+
 	if (state.appInstalled != 'COMPLETE') {
 		section{paragraph "Please hit 'Done' to install '${app.label}' parent app "}
   	}
@@ -75,14 +75,14 @@ def display(){
 	section() {
 		paragraph getFormat("line")
 		paragraph "<div style='color:#1A77C9;text-align:center'>Switch Bindings - @joelwetzel<br><a href='https://github.com/joelwetzel/' target='_blank'>Click here for more Hubitat apps/drivers on my GitHub!</a></div>"
-	}       
+	}
 }
 
 
 def mainPage() {
     dynamicPage(name: "mainPage") {
     	installCheck()
-		
+
 		if (state.appInstalled == 'COMPLETE') {
 			section(getFormat("title", "${app.label}")) {
 				paragraph "Bind two (or more) switches/dimmers/fans together.  When bound, if either one turns on or off or changes level, the binding will make the others also turn on/off or adjust level. (It works a lot like a z-wave association, but it happens in the Hubitat hub, so that the hub can know/display the updated device states.)"
@@ -94,4 +94,3 @@ def mainPage() {
 		}
 	}
 }
-

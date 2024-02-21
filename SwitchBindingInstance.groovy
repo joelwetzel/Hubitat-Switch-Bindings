@@ -1,7 +1,7 @@
 /**
- *  Switch Binding Instance v1.1
+ *  Switch Binding Instance v2.0
  *
- *  Copyright 2019 Joel Wetzel
+ *  Copyright 2024 Joel Wetzel
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -74,6 +74,19 @@ def mainPage() {
 					  "The app uses this estimated duration to make sure that the bound switches don't infinitely trigger each other. Only reduce this value if you are using very fast switches, " +
 					  "and you regularly physically toggle 2 (or more) of them right after each other (not a common case)."
 			input(name:	"responseTime",	type: "number", title: "Estimated Switch Response Time (in milliseconds)", defaultValue: 5000, required: true)
+
+            paragraph "<br/>Select attributes/events to sync between switches:"
+            input(name: "syncOnOff", type: "bool", title: "On/Off", defaultValue: true, required: true)
+            input(name: "syncLevel", type: "bool", title: "Level", defaultValue: true, required: true, submitOnChange: true)
+            if (syncLevel) {
+                input(name: "syncHeld", type: "bool", title: "Does your switch implement HELD events as button presses?", defaultValue: false, required: false, submitOnChange: true)
+                if (syncLevel && syncHeld) {
+                    input(name: "heldUpButtonNumber", type: "number", title: "Button number for holding UP", defaultValue: 1, required: false)
+                    input(name: "heldDownButtonNumber", type: "number", title: "Button number for holding DOWN", defaultValue: 2, required: false)
+                }
+            }
+            input(name: "syncSpeed", type: "bool", title: "Speed", defaultValue: true, required: true)
+            input(name: "syncHue", type: "bool", title: "Hue", defaultValue: true, required: true)
 		}
 		section () {
 			input(name:	"enableLogging", type: "bool", title: "Enable Debug Logging?", defaultValue: false,	required: true)
@@ -106,18 +119,12 @@ def initialize() {
 	if (settings.masterSwitchId && settings.masterOnly) {
         // If "Master Only" is set, only subscribe to events on the  master switch.
         log "Subscribing only to master switch events"
-		subscribe(masterSwitch, "switch.on", 		'switchOnHandler')
-		subscribe(masterSwitch, "switch.off", 		'switchOffHandler')
-		subscribe(masterSwitch, "level", 			'levelHandler')
-		subscribe(masterSwitch, "speed", 			'speedHandler')
-        subscribe(masterSwitch, "hue",              'hueHandler')
-	} else {
+
+        subscribeToEvents([masterSwitch])
+    } else {
         log "Subscribing to all switch events"
-		subscribe(switches, 	"switch.on", 		'switchOnHandler')
-		subscribe(switches, 	"switch.off", 		'switchOffHandler')
-		subscribe(switches, 	"level", 			'levelHandler')
-		subscribe(switches, 	"speed", 			'speedHandler')
-        subscribe(switches,     "hue",              'hueHandler')
+
+        subscribeToEvents(switches)
     }
 
 	// Generate a label for this child app
@@ -170,6 +177,17 @@ def initialize() {
 }
 
 
+def subscribeToEvents(subscriberList) {
+    subscribe(subscriberList, "switch.on", 		'switchOnHandler')
+    subscribe(subscriberList, "switch.off", 	'switchOffHandler')
+    subscribe(subscriberList, "level", 			'levelHandler')
+    subscribe(subscriberList, "speed", 			'speedHandler')
+    subscribe(subscriberList, "hue",            'hueHandler')
+    subscribe(subscriberList, "held",           "heldHandler")
+    subscribe(subscriberList, "released",       "releasedHandler")
+}
+
+
 void reSyncFromMaster(evt) {
 	log.info "reSyncFromMaster()"
 
@@ -197,7 +215,7 @@ void reSyncFromMaster(evt) {
 
 
 def switchOnHandler(evt) {
-	log "BINDING: ${evt.device.displayName} SWITCH On detected"
+	log "SWITCH On detected - ${evt.device.displayName}"
 
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
@@ -209,7 +227,7 @@ def switchOnHandler(evt) {
 
 
 def switchOffHandler(evt) {
-	log "BINDING: ${evt.device.displayName} SWITCH Off detected"
+	log "SWITCH Off detected - ${evt.device.displayName}"
 
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
@@ -223,7 +241,7 @@ def levelHandler(evt) {
 	// Only reflect level events while the switch is on (workaround for Zigbee driver problem that sends level immediately after turning off)
 	if (evt.device.currentValue('switch', true) == 'off') return
 
-    log "BINDING: ${evt.device.displayName} LEVEL ${evt.value} detected"
+    log "LEVEL ${evt.value} detected - ${evt.device.displayName}"
 
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
@@ -234,7 +252,7 @@ def levelHandler(evt) {
 
 
 def speedHandler(evt) {
-    log "BINDING: ${evt.device.displayName} SPEED ${evt.value} detected"
+    log "SPEED ${evt.value} detected - ${evt.device.displayName}"
 
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
@@ -245,7 +263,7 @@ def speedHandler(evt) {
 
 
 def hueHandler(evt) {
-    log "BINDING: ${evt.device.displayName} HUE ${evt.value} detected"
+    log "HUE ${evt.value} detected - ${evt.device.displayName}"
 
     if (checkForFeedbackLoop(evt.deviceId)) {
         return
@@ -253,6 +271,28 @@ def hueHandler(evt) {
 
 	syncHueState(evt.deviceId)
 }
+
+
+def heldHandler(evt) {
+    log "HELD ${evt.value} detected - ${evt.device.displayName}"
+
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
+
+    startLevelChange(evt.deviceId, evt.value)
+}
+
+def releasedHandler(evt) {
+    log "RELEASED ${evt.value} detected - ${evt.device.displayName}"
+
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
+
+    stopLevelChange(evt.deviceId, evt.value)
+}
+
 
 boolean checkForFeedbackLoop(triggeredDeviceId) {
     long now = (new Date()).getTime()
@@ -274,6 +314,10 @@ boolean checkForFeedbackLoop(triggeredDeviceId) {
 
 
 def syncSwitchState(triggeredDeviceId, onOrOff) {
+    if ((settings.syncOnOff != null) && !settings.syncOnOff) {
+        return
+    }
+
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
 		if (s.deviceId == triggeredDeviceId) {
@@ -295,6 +339,10 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 
 
 def syncLevelState(triggeredDeviceId) {
+    if ((settings.syncLevel != null) && !settings.syncLevel) {
+        return
+    }
+
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
 	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null
@@ -320,6 +368,10 @@ def syncLevelState(triggeredDeviceId) {
 
 
 def syncHueState(triggeredDeviceId) {
+    if ((settings.syncHue != null) && !settings.syncHue) {
+        return
+    }
+
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
 	def newHue = triggeredDevice.hasAttribute('hue') ? triggeredDevice.currentValue("hue", true) : null
@@ -341,6 +393,10 @@ def syncHueState(triggeredDeviceId) {
 
 
 def syncSpeedState(triggeredDeviceId) {
+    if ((settings.syncSpeed != null) && !settings.syncSpeed) {
+        return
+    }
+
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
 	def newSpeed = triggeredDevice.hasAttribute('speed') ? triggeredDevice.currentValue("speed") : null
@@ -359,6 +415,55 @@ def syncSpeedState(triggeredDeviceId) {
 				s.setSpeed(newSpeed)
 			}
 		}
+	}
+}
+
+
+def startLevelChange(triggeredDeviceId, buttonNumber) {
+    if (settings.syncHeld == null || !settings.syncHeld || settings.heldUpButtonNumber == null || settings.heldDownButtonNumber == null) {
+        return
+    }
+
+    def direction = 'none'
+
+    if (buttonNumber == settings.heldUpButtonNumber.toString()) {
+        direction = 'up'
+    }
+    else if (buttonNumber == settings.heldDownButtonNumber.toString()) {
+        direction = 'down'
+    }
+
+    if (direction == 'none') {
+        return
+    }
+
+    // Push the event out to every switch except the one that triggered this.
+	switches.each { s ->
+		if (s.deviceId == triggeredDeviceId) {
+            return
+        }
+
+        if (s.hasCommand('startLevelChange')) {
+            s.startLevelChange(direction)
+        }
+	}
+}
+
+
+def stopLevelChange(triggeredDeviceId, buttonNumber) {
+    if (settings.syncHeld == null || !settings.syncHeld || settings.heldUpButtonNumber == null || settings.heldDownButtonNumber == null) {
+        return
+    }
+
+    // Push the event out to every switch except the one that triggered this.
+	switches.each { s ->
+		if (s.deviceId == triggeredDeviceId) {
+            return
+        }
+
+        if (s.hasCommand('stopLevelChange')) {
+            s.stopLevelChange()
+        }
 	}
 }
 
