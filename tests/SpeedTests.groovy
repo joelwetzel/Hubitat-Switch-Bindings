@@ -101,4 +101,43 @@ class SpeedTests extends IntegrationAppSpecification {
         then:
             switchFixture1.currentValue('switch') == "off"
     }
+
+    void "A bound dimmer can adjust the speed of a fan"() {
+        given:
+            super.initializeEnvironment(appScriptFilename: "SwitchBindingInstance.groovy",
+                                        validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
+                                        userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, dimmerFixture1], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
+            appScript.initialize()
+
+        and:
+            fanFixture1.initialize(appExecutor, [switch: "off", level: 0, speed: "off"])
+            dimmerFixture1.initialize(appExecutor, [switch: "off", level: 0])
+
+        when:
+            dimmerFixture1.setLevel(100)
+
+        then:
+            fanFixture1.currentValue('switch') == "on"
+            fanFixture1.currentValue('level') == 100
+            fanFixture1.currentValue('speed') == "high"
+    }
+
+    void "A bound fan can adjust the level of a dimmer"() {
+        given:
+            super.initializeEnvironment(appScriptFilename: "SwitchBindingInstance.groovy",
+                                        validationFlags: [Flags.AllowAnyExistingDeviceAttributeOrCapabilityInSubscribe],
+                                        userSettingValues: [nameOverride: "Custom Name", switches: [fanFixture1, dimmerFixture1], masterSwitchId: null, masterOnly: false, pollMaster: false, pollingInterval: 5, responseTime: 5000, enableLogging: true])
+            appScript.initialize()
+
+        and:
+            fanFixture1.initialize(appExecutor, [switch: "off", level: 0, speed: "off"])
+            dimmerFixture1.initialize(appExecutor, [switch: "off", level: 0])
+
+        when:
+            fanFixture1.setSpeed("medium")
+
+        then:
+            dimmerFixture1.currentValue('switch') == "on"
+            dimmerFixture1.currentValue('level') == 50
+    }
 }

@@ -29,11 +29,12 @@ class MasterOnlyTests extends IntegrationAppSpecification {
 
         then:
         1 * log.debug("Subscribing only to master switch events")
-        1 * appExecutor.subscribe(switchFixture1, 'switch.on', 'switchOnHandler')
-        1 * appExecutor.subscribe(switchFixture1, 'switch.off', 'switchOffHandler')
-        1 * appExecutor.subscribe(switchFixture1, 'level', 'levelHandler')
-        1 * appExecutor.subscribe(switchFixture1, 'speed', 'speedHandler')
-        1 * appExecutor.subscribe(switchFixture1, 'hue', 'hueHandler')
+        1 * appExecutor.subscribe([switchFixture1], 'switch.on', 'switchOnHandler')
+        1 * appExecutor.subscribe([switchFixture1], 'switch.off', 'switchOffHandler')
+        1 * appExecutor.subscribe([switchFixture1], 'level', 'levelHandler')
+        1 * appExecutor.subscribe([switchFixture1], 'speed', 'speedHandler')
+        1 * appExecutor.subscribe([switchFixture1], 'hue', 'hueHandler')
+        1 * appExecutor.subscribe([switchFixture1], 'saturation', 'saturationHandler')
     }
 
     void "If pollMaster is set, schedule a recurring resync"() {
@@ -41,6 +42,6 @@ class MasterOnlyTests extends IntegrationAppSpecification {
         appScript.initialize()
 
         then:
-        1 * appExecutor.runEvery5Minutes('reSyncFromMaster')
+        1 * appExecutor.schedule("0 */5 * * * ?", 'reSyncFromMaster')
     }
 }

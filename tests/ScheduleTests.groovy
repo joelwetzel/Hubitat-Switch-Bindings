@@ -34,7 +34,7 @@ class ScheduleTests extends IntegrationAppSpecification {
         appScript.installed()
 
         then:
-        1 * appExecutor.runEvery5Minutes('reSyncFromMaster')
+        1 * appExecutor.schedule("0 */5 * * * ?", 'reSyncFromMaster')
 
         when:
         TimeKeeper.advanceMinutes(5)

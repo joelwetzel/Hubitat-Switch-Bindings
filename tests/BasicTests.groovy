@@ -42,6 +42,7 @@ class BasicTests extends IntegrationAppSpecification {
         1 * appExecutor.subscribe(switches, 'level', 'levelHandler')
         1 * appExecutor.subscribe(switches, 'speed', 'speedHandler')
         1 * appExecutor.subscribe(switches, 'hue', 'hueHandler')
+        1 * appExecutor.subscribe(switches, 'saturation', 'saturationHandler')
     }
 
     void "With pollMaster == false, we do not schedule a recurring resync"() {
@@ -49,7 +50,7 @@ class BasicTests extends IntegrationAppSpecification {
         appScript.initialize()
 
         then:
-        0 * appExecutor.runEvery5Minutes('reSyncFromMaster')
+        0 * appExecutor.schedule("0 */5 * * * ?", 'reSyncFromMaster')
     }
 
     void "initialize sets atomicState"() {

@@ -46,6 +46,21 @@ def mainPage() {
 		}
 		section("") {
 			input(name:	"switches",	type: "capability.switch", title: "Switches to Bind", description: "Select the switches to bind.", multiple: true, required: true, submitOnChange: true)
+
+            paragraph "<br/>Select attributes/events to sync between switches:"
+            input(name: "syncOnOff", type: "bool", title: "Switch On/Off", defaultValue: true, required: true)
+            input(name: "syncLevel", type: "bool", title: "Switch Level", defaultValue: true, required: true, submitOnChange: true)
+            if (syncLevel) {
+                input(name: "syncHeld", type: "bool", title: "Does your switch implement HELD events as button presses?", defaultValue: false, required: false, submitOnChange: true)
+                if (syncLevel && syncHeld) {
+                    input(name: "heldUpButtonNumber", type: "number", title: "Button number for holding UP", defaultValue: 1, required: false)
+                    input(name: "heldDownButtonNumber", type: "number", title: "Button number for holding DOWN", defaultValue: 2, required: false)
+                }
+            }
+            input(name: "syncSpeed", type: "bool", title: "Fan Speed", defaultValue: false, required: true)
+            paragraph "<i>Note: Most fans also respond to level and translate it into speed.  So if syncing a dimmer and a fan, you may not need to sync speed.</i>"
+            input(name: "syncHue", type: "bool", title: "Hue", defaultValue: false, required: true)
+            input(name: "syncSaturation", type: "bool", title: "Saturation", defaultValue: false, required: true)
 		}
 		section ("<b>Advanced Settings</b>", hideable: true, hidden: false) {
 			def masterChoices = [:]
@@ -64,29 +79,17 @@ def mainPage() {
 				input(name:	'pollMaster', type:	'bool', title: "Poll ${masterSwitch.displayName} and synchronize all the devices?", defaultValue: false, required: true, submitOnChange: true)
 				if (settings?.pollMaster) {
 					input(name: "pollingInterval", title:"Polling Interval (in minutes)?", type: "enum", required:false, multiple:false, defaultValue:"5", submitOnChange: true,
-						  options:["1", "2", "3", "5", "10", "15", "30"])
+						  options:["1", "5", "10", "15", "30"])
 					if (settings.pollingInterval == null) {
                         app.updateSetting('pollingInterval', "5"); settings.pollingInterval = "5";
                     }
 				}
 			}
+
 			paragraph "<br/><b>WARNING:</b> Only adjust Estimated Switch Response Time if you know what you are doing! Some dimmers don't report their new status until after they have slowly dimmed. " +
 					  "The app uses this estimated duration to make sure that the bound switches don't infinitely trigger each other. Only reduce this value if you are using very fast switches, " +
 					  "and you regularly physically toggle 2 (or more) of them right after each other (not a common case)."
 			input(name:	"responseTime",	type: "number", title: "Estimated Switch Response Time (in milliseconds)", defaultValue: 5000, required: true)
-
-            paragraph "<br/>Select attributes/events to sync between switches:"
-            input(name: "syncOnOff", type: "bool", title: "On/Off", defaultValue: true, required: true)
-            input(name: "syncLevel", type: "bool", title: "Level", defaultValue: true, required: true, submitOnChange: true)
-            if (syncLevel) {
-                input(name: "syncHeld", type: "bool", title: "Does your switch implement HELD events as button presses?", defaultValue: false, required: false, submitOnChange: true)
-                if (syncLevel && syncHeld) {
-                    input(name: "heldUpButtonNumber", type: "number", title: "Button number for holding UP", defaultValue: 1, required: false)
-                    input(name: "heldDownButtonNumber", type: "number", title: "Button number for holding DOWN", defaultValue: 2, required: false)
-                }
-            }
-            input(name: "syncSpeed", type: "bool", title: "Speed", defaultValue: true, required: true)
-            input(name: "syncHue", type: "bool", title: "Hue", defaultValue: true, required: true)
 		}
 		section () {
 			input(name:	"enableLogging", type: "bool", title: "Enable Debug Logging?", defaultValue: false,	required: true)
@@ -116,7 +119,7 @@ def initialize() {
 
 	def masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId?.toString() }
 
-	if (settings.masterSwitchId && settings.masterOnly) {
+	if (masterSwitch != null && settings.masterOnly) {
         // If "Master Only" is set, only subscribe to events on the  master switch.
         log "Subscribing only to master switch events"
 
@@ -172,7 +175,7 @@ def initialize() {
 
 	// If a master switch is set, then periodically resync
     if (settings.masterSwitchId && settings.pollMaster) {
-		runEvery5Minutes("reSyncFromMaster")
+		schedule("0 */${settings.pollingInterval} * * * ?", "reSyncFromMaster")
 	}
 }
 
@@ -183,6 +186,7 @@ def subscribeToEvents(subscriberList) {
     subscribe(subscriberList, "level", 			'levelHandler')
     subscribe(subscriberList, "speed", 			'speedHandler')
     subscribe(subscriberList, "hue",            'hueHandler')
+    subscribe(subscriberList, "saturation",     'saturationHandler')
     subscribe(subscriberList, "held",           "heldHandler")
     subscribe(subscriberList, "released",       "releasedHandler")
 }
@@ -198,8 +202,6 @@ void reSyncFromMaster(evt) {
 	}
 
     def masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
-    //log "masterSwitchId: ${settings.masterSwitchId.toString()}"
-    //log "masterSwitch: ${masterSwitch}"
 
 	if ((now() - atomicState.startInteractingMillis as long) < 1000 * 60) {
 		// I don't want resync happening while someone is standing at a switch fiddling with it.
@@ -272,6 +274,16 @@ def hueHandler(evt) {
 	syncHueState(evt.deviceId)
 }
 
+
+def saturationHandler(evt) {
+    log "SATURATION ${evt.value} detected - ${evt.device.displayName}"
+
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
+
+    syncSaturationState(evt.deviceId)
+}
 
 def heldHandler(evt) {
     log "HELD ${evt.value} detected - ${evt.device.displayName}"
@@ -387,6 +399,31 @@ def syncHueState(triggeredDeviceId) {
 
         if (s.hasCommand('setHue') && s.currentValue('hue', true) != newHue) {
             s.setHue(newHue)
+        }
+	}
+}
+
+
+def syncSaturationState(triggeredDeviceId) {
+    if ((settings.syncSaturation != null) && !settings.syncSaturation) {
+        return
+    }
+
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+
+	def newSaturation = triggeredDevice.hasAttribute('saturation') ? triggeredDevice.currentValue("saturation", true) : null
+    if (newSaturation == null) {
+        return
+    }
+
+	// Push the event out to every switch except the one that triggered this.
+	switches.each { s ->
+		if (s.deviceId == triggeredDeviceId) {
+            return
+        }
+
+        if (s.hasCommand('setSaturation') && s.currentValue('saturation', true) != newSaturation) {
+            s.setSaturation(newSaturation)
         }
 	}
 }
