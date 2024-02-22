@@ -61,6 +61,7 @@ def mainPage() {
             paragraph "<i>Note: Most fans also respond to level and translate it into speed.  So if syncing a dimmer and a fan, you may not need to sync speed.</i>"
             input(name: "syncHue", type: "bool", title: "Hue", defaultValue: false, required: true)
             input(name: "syncSaturation", type: "bool", title: "Saturation", defaultValue: false, required: true)
+            input(name: "syncColorTemperature", type: "bool", title: "Color Temperature", defaultValue: false, required: true)
 		}
 		section ("<b>Advanced Settings</b>", hideable: true, hidden: false) {
 			def masterChoices = [:]
@@ -187,6 +188,7 @@ def subscribeToEvents(subscriberList) {
     subscribe(subscriberList, "speed", 			'speedHandler')
     subscribe(subscriberList, "hue",            'hueHandler')
     subscribe(subscriberList, "saturation",     'saturationHandler')
+    subscribe(subscriberList, "colorTemperature", 'colorTemperatureHandler')
     subscribe(subscriberList, "held",           "heldHandler")
     subscribe(subscriberList, "released",       "releasedHandler")
 }
@@ -282,6 +284,16 @@ def saturationHandler(evt) {
     }
 
     syncSaturationState(evt.deviceId)
+}
+
+def colorTemperatureHandler(evt) {
+    log "COLOR TEMPERATURE ${evt.value} detected - ${evt.device.displayName}"
+
+    if (checkForFeedbackLoop(evt.deviceId)) {
+        return
+    }
+
+    syncColorTemperatureState(evt.deviceId)
 }
 
 def heldHandler(evt) {
@@ -440,6 +452,31 @@ def syncSaturationState(triggeredDeviceId) {
 
         if (s.hasCommand('setSaturation') && s.currentValue('saturation', true) != newSaturation) {
             s.setSaturation(newSaturation)
+        }
+	}
+}
+
+
+def syncColorTemperatureState(triggeredDeviceId) {
+    if ((settings.syncColorTemperature != null) && !settings.syncColorTemperature) {
+        return
+    }
+
+	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+
+	def newColorTemperature = triggeredDevice.hasAttribute('colorTemperature') ? triggeredDevice.currentValue("colorTemperature", true) : null
+    if (newColorTemperature == null) {
+        return
+    }
+
+	// Push the event out to every switch except the one that triggered this.
+	switches.each { s ->
+		if (s.deviceId == triggeredDeviceId) {
+            return
+        }
+
+        if (s.hasCommand('setColorTemperature') && s.currentValue('colorTemperature', true) != newColorTemperature) {
+            s.setColorTemperature(newColorTemperature)
         }
 	}
 }
