@@ -1,4 +1,15 @@
-# Switch Bindings app for Hubitat
+# Switch Bindings 2.0 Release!
+Today I release Version 2.0!  This is a major overhaul with some great new features.  (Thank you for the suggestions!)
+
+- Toggles to let you choose which attributes/events to sync
+- Syncing of Held/Released events on dimmers and switches.  For example, it can start ramping the other dimmers up/down as soon as you hold the paddle on another dimmer.  You don't have to wait for the Level attribute to update at the end.
+- Now can sync Hue, Saturation, and Color Temperature
+- Includes a fix specifically for supporting Hue smart bulbs
+- Miscellaneous bug fixes
+- Refactored code for cleanliness and readability
+- Full unit test suite, to ensure quality control while adding new features.
+
+## Switch Bindings app for Hubitat
 An app for Hubitat that binds two (or more) switches/dimmers together.  When bound, if either one turns on or off, the binding will make the other one also turn on/off.  It will also sync dimmer levels, if any of the devices are dimmers. (It works a lot like a z-wave association, but it happens in the Hubitat hub, so that the hub can know/display the updated device states.  Because the Hubitat is local, the binding can happen effectively as fast as z-wave messages can travel.)
 
 ## Examples of Usage
