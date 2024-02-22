@@ -224,7 +224,6 @@ def switchOnHandler(evt) {
     }
 
 	syncSwitchState(evt.deviceId, true)
-	syncLevelState(evt.deviceId)		// Double check that the level is correct
 }
 
 
@@ -330,6 +329,12 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
         return
     }
 
+    def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : 100        // If the triggered device has a level, then we're going to push it out to the other devices too.  If not, we'll push out level 100.
+    if (newLevel < 5) {
+        newLevel = 5
+    }
+
 	// Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
 		if (s.deviceId == triggeredDeviceId) {
@@ -337,8 +342,19 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
         }
 
         if (onOrOff) {
+            // Special case for Hue bulbs.  They have a device setting for transitionTime, and to honor that, we need to setLevel with the transitionTime, instead of just turning on.
+            if (s.currentValue('switch', true) != 'on' && s.getSetting("transitionTime") != null && s.hasAttribute('level')) {
+                def transitionTime = s.getSetting("transitionTime")
+                s.setLevel(newLevel, transitionTime)
+                return
+            }
+
             if (s.currentValue('switch', true) != 'on') {
                 s.on()
+            }
+
+            if (s.hasCommand('setLevel') && s.currentValue('level', true) != newLevel) {        // Push the level of the triggering device out to the other devices.
+                s.setLevel(newLevel)
             }
         }
         else {

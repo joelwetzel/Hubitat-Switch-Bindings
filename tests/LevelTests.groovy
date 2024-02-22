@@ -68,7 +68,7 @@ class LevelTests extends IntegrationAppSpecification {
         dimmerFixture3.currentValue('level') == 50
     }
 
-    void "Can handle inconsistent initial state"() {
+    void "Can handle inconsistent initial state when setting level"() {
         given:
         switchFixture1.initialize(appExecutor, [switch: "off"])
         dimmerFixture1.initialize(appExecutor, [switch: "on", level: 5])
@@ -87,6 +87,27 @@ class LevelTests extends IntegrationAppSpecification {
         dimmerFixture1.currentValue('level') == 80
         dimmerFixture2.currentValue('level') == 80
         dimmerFixture3.currentValue('level') == 80
+    }
+
+    void "Can handle inconsistent initial state when turning on"() {
+        given:
+        switchFixture1.initialize(appExecutor, [switch: "off"])
+        dimmerFixture1.initialize(appExecutor, [switch: "on", level: 5])
+        dimmerFixture2.initialize(appExecutor, [switch: "off", level: 50])
+        dimmerFixture3.initialize(appExecutor, [switch: "off", level: 100])
+
+        when:
+        dimmerFixture3.on()
+
+        then:
+        appAtomicState.controllingDeviceId == dimmerFixture3.deviceId
+        switchFixture1.currentValue('switch') == "on"
+        dimmerFixture1.currentValue('switch') == "on"
+        dimmerFixture2.currentValue('switch') == "on"
+        dimmerFixture3.currentValue('switch') == "on"
+        dimmerFixture1.currentValue('level') == 100         // The level of the one that turned on should also be propagated to the other dimmers.
+        dimmerFixture2.currentValue('level') == 100
+        dimmerFixture3.currentValue('level') == 100
     }
 
     void "setLevel can turn a switch on, even if the dimmer was already on"() {
