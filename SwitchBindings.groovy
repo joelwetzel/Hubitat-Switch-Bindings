@@ -1,5 +1,5 @@
 /**
- *  Switch Bindings v2.0
+ *  Switch Bindings v2.0.1
  *
  *  Copyright 2024 Joel Wetzel
  *
