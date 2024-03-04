@@ -1,5 +1,5 @@
 /**
- *  Switch Binding Instance v2.0.1
+ *  Switch Binding Instance v2.0.2
  *
  *  Copyright 2024 Joel Wetzel
  *
@@ -355,7 +355,7 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 
         if (onOrOff) {
             // Special case for Hue bulbs.  They have a device setting for transitionTime, and to honor that, we need to setLevel with the transitionTime, instead of just turning on.
-            if (s.currentValue('switch', true) != 'on' && s.getSetting("transitionTime") != null && s.hasAttribute('level')) {
+            if (s.currentValue('switch', true) != 'on' && s.getSetting("transitionTime") != null && s.hasAttribute('level') && newLevel != null) {
                 def transitionTime = s.getSetting("transitionTime")
                 s.setLevel(newLevel, transitionTime)
                 return
@@ -397,7 +397,7 @@ def syncLevelState(triggeredDeviceId) {
         }
 
         if (s.hasCommand('setLevel')) {
-            if (s.currentValue('level', true) != newLevel) {
+            if (newLevel != null && s.currentValue('level', true) != newLevel) {
                 s.setLevel(newLevel)
             }
         } else if (s.currentValue('switch') == 'off' && newLevel > 0) {
