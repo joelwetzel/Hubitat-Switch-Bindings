@@ -1,5 +1,5 @@
 /**
- *  Switch Binding Instance v2.0.2
+ *  Switch Binding Instance v2.0.3
  *
  *  Copyright 2024 Joel Wetzel
  *
@@ -341,7 +341,8 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
         return
     }
 
-    def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+    def triggeredDevice = switches.find { triggeredDeviceId != null && it.deviceId.toString() == triggeredDeviceId.toString() }
+
 	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null        // If the triggered device has a level, then we're going to push it out to the other devices too.
     if (newLevel != null && newLevel < 5) {
         newLevel = 5
