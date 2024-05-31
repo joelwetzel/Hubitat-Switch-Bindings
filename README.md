@@ -21,7 +21,7 @@ An app for Hubitat that binds two (or more) switches/dimmers together.  When bou
 
 ## Installation
 
-The best way to install this code is by using [Hubitat Package Manager](https://community.hubitat.com/t/beta-hubitat-package-manager).
+The best way to install this code is by using [Hubitat Package Manager](https://community.hubitat.com/t/beta-hubitat-package-manager).  After HPM installs the app, go to your apps page and click "+ Add User App".
 
 However, if you must install manually:
 
@@ -33,7 +33,7 @@ However, if you must install manually:
 6. Copy in the contents of SwitchBindingInstance.groovy
 7. Click "Save"
 8. Go to the "Apps" page
-9. Click "Add User App"
+9. Click "+ Add User App"
 10. Click on Switch Bindings
 11. Click "Done"
 12. Click on Switch Bindings in your apps list
