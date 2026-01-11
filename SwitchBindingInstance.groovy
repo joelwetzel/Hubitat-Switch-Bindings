@@ -348,10 +348,10 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 
     def triggeredDevice = switches.find { triggeredDeviceId != null && it.deviceId.toString() == triggeredDeviceId.toString() }
 
-    if (triggeredDevice == null) {
-        log "syncSwitchState: Triggered device not found"
-        return
-    }
+	if (triggeredDevice == null) {
+		log "syncSwitchState: Triggered device not found"
+		return
+	}
 
 	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null        // If the triggered device has a level, then we're going to push it out to the other devices too.
     if (newLevel != null && newLevel < 5) {
