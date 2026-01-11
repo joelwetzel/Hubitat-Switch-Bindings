@@ -546,6 +546,11 @@ def stopLevelChange(triggeredDeviceId, buttonNumber) {
         return
     }
 
+    // Only process if the button number matches one of the configured held buttons
+    if (buttonNumber != settings.heldUpButtonNumber.toString() && buttonNumber != settings.heldDownButtonNumber.toString()) {
+        return
+    }
+
     // Push the event out to every switch except the one that triggered this.
 	switches.each { s ->
 		if (s.deviceId == triggeredDeviceId) {
