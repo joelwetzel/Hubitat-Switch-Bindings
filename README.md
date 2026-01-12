@@ -64,11 +64,25 @@ This project includes a comprehensive integration test suite to ensure code qual
 
 The tests use a fork of biocomp's [Hubitat_CI](https://github.com/biocomp/hubitat_ci) project. The forked version is maintained at [https://github.com/joelwetzel/hubitat_ci](https://github.com/joelwetzel/hubitat_ci).
 
-The Gradle build system pulls the hubitat_ci testing framework from Maven during the build process. To configure this, you need to set the `MAVEN_ENDPOINT` environment variable to point to the Maven repository:
+### Environment Variables
+
+The Gradle build system pulls the hubitat_ci testing framework from Maven during the build process. You need to configure the following environment variables:
 
 ```bash
-export MAVEN_ENDPOINT=https://maven.pkg.github.com/joelwetzel/hubitat_ci
+# Required: GitHub repository for the hubitat_ci dependency
+# Note: The default is "biocomp/hubitat_ci", but that version doesn't support
+# integration tests yet. You MUST set this to use the joelwetzel fork.
+export GITHUB_REPOSITORY=joelwetzel/hubitat_ci
+
+# Required: GitHub credentials for accessing the Maven package repository
+export GITHUB_ACTOR=your_github_username
+export GITHUB_TOKEN=your_github_personal_access_token
+
+# Optional: Maven artifact ID (defaults to "hubitat_ci" if not set)
+export MAVEN_ARTIFACT_ID=hubitat_ci
 ```
+
+**Note on GITHUB_TOKEN**: You'll need to create a GitHub Personal Access Token with `read:packages` scope. Generate one at [https://github.com/settings/tokens](https://github.com/settings/tokens).
 
 ### Running Tests
 

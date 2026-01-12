@@ -81,13 +81,13 @@ void "Test description"() {
 
 ### Environment Setup
 
-**CRITICAL**: Set the Maven endpoint before running tests:
+**CRITICAL**: Set the GITHUB_REPOSITORY endpoint before running tests:
 
 ```bash
-export MAVEN_ENDPOINT=https://maven.pkg.github.com/joelwetzel/hubitat_ci
+export GITHUB_REPOSITORY=joelwetzel/hubitat_ci
 ```
 
-This is required in [build.gradle](../build.gradle#L19) to pull the custom hubitat_ci testing framework.
+This is required in [build.gradle](../build.gradle#L19) to pull the custom hubitat_ci integration testing framework.
 
 ### Running Tests
 
