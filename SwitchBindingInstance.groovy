@@ -205,6 +205,11 @@ void reSyncFromMaster(evt) {
 
     def masterSwitch = settings.switches.find { it.deviceId.toString() == settings.masterSwitchId.toString() }
 
+	if (masterSwitch == null) {
+		log "reSyncFromMaster: Master Switch not found in switches list"
+		return
+	}
+
 	if ((now() - atomicState.startInteractingMillis as long) < 1000 * 60) {
 		// I don't want resync happening while someone is standing at a switch fiddling with it.
 		// Wait until the system has been stable for a bit.
@@ -343,6 +348,11 @@ def syncSwitchState(triggeredDeviceId, onOrOff) {
 
     def triggeredDevice = switches.find { triggeredDeviceId != null && it.deviceId.toString() == triggeredDeviceId.toString() }
 
+	if (triggeredDevice == null) {
+		log "syncSwitchState: Triggered device not found"
+		return
+	}
+
 	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null        // If the triggered device has a level, then we're going to push it out to the other devices too.
     if (newLevel != null && newLevel < 5) {
         newLevel = 5
@@ -386,6 +396,11 @@ def syncLevelState(triggeredDeviceId) {
 
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
+	if (triggeredDevice == null) {
+		log "syncLevelState: Triggered device not found"
+		return
+	}
+
 	def newLevel = triggeredDevice.hasAttribute('level') ? triggeredDevice.currentValue("level", true) : null
     if (newLevel == null) {
         return
@@ -415,6 +430,11 @@ def syncHueState(triggeredDeviceId) {
 
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
+	if (triggeredDevice == null) {
+		log "syncHueState: Triggered device not found"
+		return
+	}
+
 	def newHue = triggeredDevice.hasAttribute('hue') ? triggeredDevice.currentValue("hue", true) : null
     if (newHue == null) {
         return
@@ -439,6 +459,11 @@ def syncSaturationState(triggeredDeviceId) {
     }
 
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+
+	if (triggeredDevice == null) {
+		log "syncSaturationState: Triggered device not found"
+		return
+	}
 
 	def newSaturation = triggeredDevice.hasAttribute('saturation') ? triggeredDevice.currentValue("saturation", true) : null
     if (newSaturation == null) {
@@ -465,6 +490,11 @@ def syncColorTemperatureState(triggeredDeviceId) {
 
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
 
+	if (triggeredDevice == null) {
+		log "syncColorTemperatureState: Triggered device not found"
+		return
+	}
+
 	def newColorTemperature = triggeredDevice.hasAttribute('colorTemperature') ? triggeredDevice.currentValue("colorTemperature", true) : null
     if (newColorTemperature == null) {
         return
@@ -489,6 +519,11 @@ def syncSpeedState(triggeredDeviceId) {
     }
 
 	def triggeredDevice = switches.find { it.deviceId == triggeredDeviceId }
+
+	if (triggeredDevice == null) {
+		log "syncSpeedState: Triggered device not found"
+		return
+	}
 
 	def newSpeed = triggeredDevice.hasAttribute('speed') ? triggeredDevice.currentValue("speed") : null
     if (newSpeed == null) {
@@ -543,6 +578,11 @@ def startLevelChange(triggeredDeviceId, buttonNumber) {
 
 def stopLevelChange(triggeredDeviceId, buttonNumber) {
     if (settings.syncHeld == null || !settings.syncHeld || settings.heldUpButtonNumber == null || settings.heldDownButtonNumber == null) {
+        return
+    }
+
+    // Only process if the button number matches one of the configured held buttons
+    if (buttonNumber != settings.heldUpButtonNumber.toString() && buttonNumber != settings.heldDownButtonNumber.toString()) {
         return
     }
 
