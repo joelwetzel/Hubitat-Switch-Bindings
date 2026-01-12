@@ -2,10 +2,10 @@
 	"packageName": "Switch Bindings",
 	"minimumHEVersion": "2.2.1",
 	"author": "Joel Wetzel",
-	"version": "2.0.3",
-	"dateReleased": "2024-03-05",
+	"version": "2.0.4",
+	"dateReleased": "2026-01-11",
 	"licenseFile": "https://raw.githubusercontent.com/joelwetzel/Hubitat-Auto-Shades/master/LICENSE",
-	"releaseNotes": "1) Can now toggle which events or attributes are synced.  2) Can now sync HELD/RELEASED events.",
+	"releaseNotes": "Bug fixes",
 	"communityLink": "https://community.hubitat.com/t/release-switch-bindings",
 	"documentationLink": "https://github.com/joelwetzel/Hubitat-Switch-Bindings",
 	"apps" : [
