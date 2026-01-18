@@ -60,6 +60,8 @@ class BasicTests extends IntegrationAppSpecification {
         then:
         appAtomicState.startInteractingMillis == 0
         appAtomicState.controllingDeviceId == 0
+        appAtomicState.lastOffEventMillis == 0
+        appAtomicState.lastOffDeviceId == 0
     }
 
 }
