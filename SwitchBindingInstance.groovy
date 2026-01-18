@@ -260,7 +260,7 @@ def levelHandler(evt) {
 		// If this device was just turned off (within 1 second), ignore the level event
 		if (evt.deviceId == atomicState.lastOffDeviceId && 
 		    (now - atomicState.lastOffEventMillis as long) < 1000) {
-			log "levelHandler: Ignoring level event immediately after turn-off for ${evt.device.displayName}"
+			log.debug "levelHandler: Ignoring level event immediately after turn-off for ${evt.device.displayName}"
 			return
 		}
 	}
