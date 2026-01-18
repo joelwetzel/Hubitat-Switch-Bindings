@@ -172,9 +172,9 @@ def initialize() {
 	app.updateLabel(newLabel)
 
 	atomicState.startInteractingMillis = 0 as long
-	atomicState.controllingDeviceId = 0
+	atomicState.controllingDeviceId = null
 	atomicState.lastOffEventMillis = 0 as long
-	atomicState.lastOffDeviceId = 0
+	atomicState.lastOffDeviceId = null
 
 	// If a master switch is set, then periodically resync
     if (settings.masterSwitchId && settings.pollMaster) {

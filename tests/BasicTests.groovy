@@ -59,9 +59,9 @@ class BasicTests extends IntegrationAppSpecification {
 
         then:
         appAtomicState.startInteractingMillis == 0
-        appAtomicState.controllingDeviceId == 0
+        appAtomicState.controllingDeviceId == null
         appAtomicState.lastOffEventMillis == 0
-        appAtomicState.lastOffDeviceId == 0
+        appAtomicState.lastOffDeviceId == null
     }
 
 }
