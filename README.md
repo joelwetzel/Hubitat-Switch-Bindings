@@ -1,4 +1,7 @@
 # Switch Bindings 2.0 Release!
+
+[![CI](https://github.com/joelwetzel/Hubitat-Switch-Bindings/actions/workflows/ci.yml/badge.svg)](https://github.com/joelwetzel/Hubitat-Switch-Bindings/actions/workflows/ci.yml)
+
 Today I release Version 2.0!  This is a major overhaul with some great new features.  (Thank you for the suggestions!)
 
 - Toggles to let you choose which attributes/events to sync
