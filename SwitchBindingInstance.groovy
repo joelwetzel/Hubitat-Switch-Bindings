@@ -1,5 +1,5 @@
 /**
- *  Switch Binding Instance v2.0.5
+ *  Switch Binding Instance v2.0.6
  *
  *  Copyright 2024 Joel Wetzel
  *
