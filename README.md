@@ -69,23 +69,30 @@ The tests use a fork of biocomp's [Hubitat_CI](https://github.com/biocomp/hubita
 
 ### Environment Variables
 
-The Gradle build system pulls the hubitat_ci testing framework from Maven during the build process. You need to configure the following environment variables:
+The Gradle build system pulls the hubitat_ci testing framework from Maven during the build process. The required environment variables are automatically configured when using GitHub Codespaces.
+
+#### For GitHub Codespaces
+
+Public variables are configured in `.devcontainer/devcontainer.json`. For sensitive credentials, add them as Codespaces Secrets:
+
+1. Go to your repository → **Settings** → **Secrets and variables** → **Codespaces**
+2. Add the following secret:
+   - `MAVEN_GITHUB_TOKEN`: Your personal access token with `read:packages` scope ([generate here](https://github.com/settings/tokens))
+
+`MAVEN_GITHUB_ACTOR` is automatically populated from your authenticated GitHub user when the Codespace starts.
+
+#### For Local Development
+
+If developing locally, export these variables in your shell:
 
 ```bash
-# Required: GitHub repository for the hubitat_ci dependency
-# Note: The default is "biocomp/hubitat_ci", but that version doesn't support
-# integration tests yet. You MUST set this to use the joelwetzel fork.
-export GITHUB_REPOSITORY=joelwetzel/hubitat_ci
-
-# Required: GitHub credentials for accessing the Maven package repository
-export GITHUB_ACTOR=your_github_username
-export GITHUB_TOKEN=your_github_personal_access_token
-
-# Optional: Maven artifact ID (defaults to "hubitat_ci" if not set)
+export MAVEN_GITHUB_REPOSITORY=joelwetzel/hubitat_ci
+export MAVEN_GITHUB_ACTOR=your_github_username
+export MAVEN_GITHUB_TOKEN=your_personal_access_token
 export MAVEN_ARTIFACT_ID=hubitat_ci
 ```
 
-**Note on GITHUB_TOKEN**: You'll need to create a GitHub Personal Access Token with `read:packages` scope. Generate one at [https://github.com/settings/tokens](https://github.com/settings/tokens).
+**Note**: The `MAVEN_GITHUB_TOKEN` requires `read:packages` scope to access the Maven package repository.
 
 ### Running Tests
 
