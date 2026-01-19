@@ -244,4 +244,77 @@ class LevelTests extends IntegrationAppSpecification {
         dimmerFixture3.currentValue('level') == 20
     }
 
+    void "Level events are processed when switch is off (Eaton RF9640/RF9642 scenario)"() {
+        given:
+        switchFixture1.initialize(appExecutor, [switch: "off"])
+        dimmerFixture1.initialize(appExecutor, [switch: "off", level: 50])
+        dimmerFixture2.initialize(appExecutor, [switch: "off", level: 50])
+        dimmerFixture3.initialize(appExecutor, [switch: "off", level: 50])
+
+        when:
+        // Simulate Eaton device behavior: level event fires while switch state is still 'off'
+        // This happens when turning on the device directly
+        dimmerFixture1.setLevel(75)
+
+        then:
+        appAtomicState.controllingDeviceId == dimmerFixture1.deviceId
+        // The level should propagate to other dimmers even though the triggering switch is 'off'
+        dimmerFixture2.currentValue('level') == 75
+        dimmerFixture3.currentValue('level') == 75
+    }
+
+    void "Level events immediately after turning off are ignored (Zigbee workaround)"() {
+        given:
+        switchFixture1.initialize(appExecutor, [switch: "on"])
+        dimmerFixture1.initialize(appExecutor, [switch: "on", level: 75])
+        dimmerFixture2.initialize(appExecutor, [switch: "on", level: 75])
+        dimmerFixture3.initialize(appExecutor, [switch: "on", level: 75])
+
+        when:
+        // Turn off the dimmer
+        dimmerFixture1.off()
+
+        then:
+        dimmerFixture1.currentValue('switch') == "off"
+        dimmerFixture2.currentValue('switch') == "off"
+        dimmerFixture3.currentValue('switch') == "off"
+
+        when:
+        // Immediately send a level event (within 1 second) - should be ignored
+        dimmerFixture1.sendEvent([name: "level", value: 50])
+
+        then:
+        // Other dimmers should NOT change their level
+        dimmerFixture2.currentValue('level') == 75
+        dimmerFixture3.currentValue('level') == 75
+    }
+
+    void "Level events after delay from turning off are processed"() {
+        given:
+        switchFixture1.initialize(appExecutor, [switch: "on"])
+        dimmerFixture1.initialize(appExecutor, [switch: "on", level: 75])
+        dimmerFixture2.initialize(appExecutor, [switch: "on", level: 75])
+        dimmerFixture3.initialize(appExecutor, [switch: "on", level: 75])
+
+        when:
+        // Turn off the dimmer
+        dimmerFixture1.off()
+
+        then:
+        dimmerFixture1.currentValue('switch') == "off"
+
+        when:
+        // Wait more than 1 second
+        TimeKeeper.advanceSeconds(2)
+
+        and:
+        // Now send a level event - should be processed (could be user adjusting preset level)
+        dimmerFixture1.setLevel(50)
+
+        then:
+        // Other dimmers should change their level
+        dimmerFixture2.currentValue('level') == 50
+        dimmerFixture3.currentValue('level') == 50
+    }
+
 }

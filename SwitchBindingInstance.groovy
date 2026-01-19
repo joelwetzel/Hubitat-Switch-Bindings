@@ -1,5 +1,5 @@
 /**
- *  Switch Binding Instance v2.0.4
+ *  Switch Binding Instance v2.0.6
  *
  *  Copyright 2024 Joel Wetzel
  *
@@ -172,7 +172,9 @@ def initialize() {
 	app.updateLabel(newLabel)
 
 	atomicState.startInteractingMillis = 0 as long
-	atomicState.controllingDeviceId = 0
+	atomicState.controllingDeviceId = null
+	atomicState.lastOffEventMillis = 0 as long
+	atomicState.lastOffDeviceId = null
 
 	// If a master switch is set, then periodically resync
     if (settings.masterSwitchId && settings.pollMaster) {
@@ -241,13 +243,27 @@ def switchOffHandler(evt) {
         return
     }
 
+	// Track when this device was turned off to prevent spurious level events immediately after
+	atomicState.lastOffEventMillis = (new Date()).getTime()
+	atomicState.lastOffDeviceId = evt.deviceId
+
 	syncSwitchState(evt.deviceId, false)
 }
 
 
 def levelHandler(evt) {
-	// Only reflect level events while the switch is on (workaround for Zigbee driver problem that sends level immediately after turning off)
-	if (evt.device.currentValue('switch', true) == 'off') return
+	// Only reflect level events while the switch is on, OR if significant time has passed since turning off.
+	// This is a workaround for Zigbee driver problem that sends level immediately after turning off,
+	// but we don't want to block level events that are part of turning on (e.g., Eaton RF9640/RF9642).
+	long now = (new Date()).getTime()
+	if (evt.device.currentValue('switch', true) == 'off') {
+		// If this device was just turned off (within 1 second), ignore the level event
+		if (evt.deviceId == atomicState.lastOffDeviceId && 
+		    (now - atomicState.lastOffEventMillis as long) < 1000) {
+			log "levelHandler: Ignoring level event immediately after turn-off for ${evt.device.displayName}"
+			return
+		}
+	}
 
     log "LEVEL ${evt.value} detected - ${evt.device.displayName}"
 

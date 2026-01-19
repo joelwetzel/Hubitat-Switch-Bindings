@@ -2,10 +2,10 @@
 	"packageName": "Switch Bindings",
 	"minimumHEVersion": "2.2.1",
 	"author": "Joel Wetzel",
-	"version": "2.0.4",
-	"dateReleased": "2026-01-11",
+	"version": "2.0.6",
+	"dateReleased": "2026-01-18",
 	"licenseFile": "https://raw.githubusercontent.com/joelwetzel/Hubitat-Auto-Shades/master/LICENSE",
-	"releaseNotes": "Bug fixes",
+	"releaseNotes": "Fixed long-standing issue (since v1.0) where Eaton RF9640/RF9642 dimmer/switch devices did not function correctly when turned ON directly",
 	"communityLink": "https://community.hubitat.com/t/release-switch-bindings",
 	"documentationLink": "https://github.com/joelwetzel/Hubitat-Switch-Bindings",
 	"apps" : [
