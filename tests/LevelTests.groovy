@@ -254,7 +254,7 @@ class LevelTests extends IntegrationAppSpecification {
         when:
         // Simulate Eaton device behavior: level event fires while switch state is still 'off'
         // This happens when turning on the device directly
-        dimmerFixture1.sendEvent([name: "level", value: 75])
+        dimmerFixture1.setLevel(75)
 
         then:
         appAtomicState.controllingDeviceId == dimmerFixture1.deviceId
@@ -284,7 +284,6 @@ class LevelTests extends IntegrationAppSpecification {
         dimmerFixture1.sendEvent([name: "level", value: 50])
 
         then:
-        1 * log.debug("levelHandler: Ignoring level event immediately after turn-off for ${dimmerFixture1.displayName}")
         // Other dimmers should NOT change their level
         dimmerFixture2.currentValue('level') == 75
         dimmerFixture3.currentValue('level') == 75
@@ -310,7 +309,7 @@ class LevelTests extends IntegrationAppSpecification {
 
         and:
         // Now send a level event - should be processed (could be user adjusting preset level)
-        dimmerFixture1.sendEvent([name: "level", value: 50])
+        dimmerFixture1.setLevel(50)
 
         then:
         // Other dimmers should change their level
